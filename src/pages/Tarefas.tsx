@@ -1,6 +1,6 @@
 // Tarefas.tsx
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   collection,
   doc,
@@ -15,6 +15,7 @@ export default function Tarefas() {
   const { objetivoId, faseId } = useParams();
   const [tituloFase, setTituloFase] = useState("");
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function fetchTarefas() {
@@ -65,8 +66,16 @@ export default function Tarefas() {
       : 0;
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Fase: {tituloFase}</h1>
+    <div className="max-w-xl mx-auto p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold mb-4" style={{cursor: 'pointer'}} onClick={() => (navigate(`/objetivos/${objetivoId}/fases`))}>Fase: {tituloFase}</h1>
+        <button
+          onClick={() => navigate(`/objetivos/${objetivoId}/fases/${faseId}/nova-tarefa`)}
+          className="mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Nova Tarefa
+        </button>
+      </div>
 
       <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
         <div

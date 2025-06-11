@@ -73,17 +73,18 @@ export default function Fases() {
   }, [objetivoId]);
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">
-        Objetivo: {objetivo?.titulo ?? "Carregando..."}
-      </h1>
-
-      <button
-        onClick={() => navigate(`/objetivos/${objetivoId}/fases/nova`)}
-        className="mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-      >
-        Nova Fase
-      </button>
+    <div className="max-w-xl mx-auto p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold mb-4" style={{color: 'indigo', cursor: 'pointer'}} onClick={() => (navigate('/'))}>
+          Objetivo: {objetivo?.titulo ?? "Carregando..."}
+        </h1>
+        <button
+          onClick={() => navigate(`/objetivos/${objetivoId}/fases/nova`)}
+          className="mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Nova Fase
+        </button>
+      </div>
 
       {fases.map((fase) => {
         const progresso = calcularProgresso(fase.tarefas || []);

@@ -3,6 +3,7 @@ import Objetivos from "@/pages/Objetivos";
 import NovoObjetivo from "@/pages/NovoObjetivo";
 import Fases from "@/pages/Fases";
 import NovaFase from "@/pages/NovaFase";
+import Tarefas from "@/pages/Tarefas";
 import NovaTarefa from "@/pages/NovaTarefa";
 // import Register from "@/pages/Register";
 // import Dashboard from "@/pages/Dashboard";
@@ -26,6 +27,7 @@ const AppRoutes = () => (
       <Route path="/novo-objetivo" element={<NovoObjetivo />} />
       <Route path="/objetivos/:objetivoId/fases" element={<Fases />} />
       <Route path="/objetivos/:objetivoId/fases/nova" element={<NovaFase />} />
+      <Route path="/objetivos/:objetivoId/fases/:faseId/tarefas" element={<Tarefas />} />
       <Route path="/objetivos/:objetivoId/fases/:faseId/nova-tarefa" element={<NovaTarefa />} />
       {/* <Route path="/register" element={<Register />} /> */}
       
