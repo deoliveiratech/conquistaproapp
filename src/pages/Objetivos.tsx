@@ -1,25 +1,47 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { collection, getDocs, Timestamp } from "firebase/firestore";
+import { db as firestone } from "../lib/firebase";
+import { db as dbLocal } from "../lib/db";
 import { Link } from "react-router-dom";
-
-interface Objetivo {
-  id: string;
-  titulo: string;
-  descricao?: string;
-}
+import type { Objetivo } from "../lib/db";
 
 export default function Objetivos() {
   const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
 
   useEffect(() => {
     const fetchObjetivos = async () => {
-      const snapshot = await getDocs(collection(db, "objetivos"));
-      const lista = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Objetivo[];
-      setObjetivos(lista);
+      try {
+        const snapshot = await getDocs(collection(firestone, "objetivos"));
+
+        const lista: Objetivo[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+
+          return {
+            id: doc.id,
+            titulo: data.titulo,
+            descricao: data.descricao || "",
+            criadoEm:
+              data.criadoEm instanceof Timestamp
+                ? data.criadoEm.toDate().toISOString()
+                : null,
+            atualizadoEm:
+              data.atualizadoEm instanceof Timestamp
+                ? data.atualizadoEm.toDate().toISOString()
+                : null,
+          };
+        });
+
+        setObjetivos(lista);
+
+        // sincroniza com IndexedDB
+        await dbLocal.objetivos.clear();
+        await dbLocal.objetivos.bulkAdd(lista);
+        console.log(lista);
+      } catch (err) {
+        console.warn("Erro ao acessar Firestore, carregando do IndexedDB:", err);
+        const local = await dbLocal.objetivos.toArray();
+        setObjetivos(local);
+      }
     };
 
     fetchObjetivos();
@@ -53,8 +75,10 @@ export default function Objetivos() {
                 {obj.descricao || "Sem descrição"}
               </p>
 
-              {/* Barra de progresso simples (ajuste dinâmico futuro) */}
-              <div className="progress-bar mb-4" aria-label="Progresso de tarefas concluídas">
+              <div
+                className="progress-bar mb-4"
+                aria-label="Progresso de tarefas concluídas"
+              >
                 <div style={{ width: "50%" }} />
               </div>
 

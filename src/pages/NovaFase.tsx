@@ -2,7 +2,9 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+
+import { db as firestore } from "../lib/firebase";
+import { db as localDB } from "../lib/db";
 
 export default function NovaFase() {
   const { objetivoId } = useParams();
@@ -13,12 +15,29 @@ export default function NovaFase() {
   const handleSalvar = async () => {
     if (!titulo.trim() || !objetivoId) return;
 
-    await addDoc(collection(db, "objetivos", objetivoId, "fases"), {
+    const faseData = {
       titulo,
       ordem,
-    });
+    };
 
-    navigate(`/objetivos/${objetivoId}/fases`);
+    try {
+      // 1. Salvar no Firestore
+      const docRef = await addDoc(
+        collection(firestore, "objetivos", objetivoId, "fases"),
+        faseData
+      );
+
+      // 2. Salvar no IndexedDB
+      await localDB.fases.add({
+        ...faseData,
+        id: docRef.id,
+        objetivoId,
+      });
+
+      navigate(`/objetivos/${objetivoId}`);
+    } catch (error) {
+      console.error("Erro ao salvar fase:", error);
+    }
   };
 
   return (
@@ -43,7 +62,7 @@ export default function NovaFase() {
 
       <button
         onClick={handleSalvar}
-        className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+        className="bg-purple-600 text-white px-4 py-2 rounded w-full"
       >
         Salvar Fase
       </button>

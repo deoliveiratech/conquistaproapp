@@ -2,7 +2,9 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+//Locais de persistência dos dados
+import { db as firestore } from "../lib/firebase";
+import { db as localDB } from "../lib/db";
 
 export default function NovaTarefa() {
   const { objetivoId, faseId } = useParams();
@@ -13,13 +15,30 @@ export default function NovaTarefa() {
   const handleSalvar = async () => {
     if (!nome.trim() || !objetivoId || !faseId) return;
 
-    await addDoc(collection(db, "objetivos", objetivoId, "fases", faseId, "tarefas"), {
+    const tarefaData = {
       nome,
-      concluida: false,
       ordem,
-    });
+      concluida: false,
+    };
 
-    navigate(`/objetivos/${objetivoId}/fases/${faseId}/tarefas`);
+    try {
+      // 1. Salvar no Firestore
+      const docRef = await addDoc(
+        collection(firestore, "objetivos", objetivoId, "fases", faseId, "tarefas"),
+        tarefaData
+      );
+
+      // 2. Salvar no IndexedDB
+      await localDB.tarefas.add({
+        ...tarefaData,
+        id: docRef.id,
+        faseId,
+      });
+
+      navigate(`/objetivos/${objetivoId}/fases/${faseId}/tarefas`);
+    } catch (error) {
+      console.error("Erro ao salvar tarefa:", error);
+    }
   };
 
   return (

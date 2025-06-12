@@ -1,8 +1,9 @@
-// NovoObjetivo.tsx
+// src/pages/NovoObjetivo.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db as firestore } from "../lib/firebase";
+import { db as localDB } from "../lib/db";
 
 export default function NovoObjetivo() {
   const [titulo, setTitulo] = useState("");
@@ -12,14 +13,30 @@ export default function NovoObjetivo() {
   const handleSalvar = async () => {
     if (!titulo.trim()) return;
 
-    const docRef = await addDoc(collection(db, "objetivos"), {
+    const novoObjetivo = {
       titulo,
       descricao,
       criadoEm: serverTimestamp(),
       atualizadoEm: serverTimestamp(),
-    });
+    };
 
-    navigate(`/objetivos/${docRef.id}/fases`);
+    try {
+      // 1. Salvar no Firestore
+      const docRef = await addDoc(collection(firestore, "objetivos"), novoObjetivo);
+
+      // 2. Salvar no IndexedDB (sem timestamps do Firebase)
+      await localDB.objetivos.add({
+        id: docRef.id,
+        titulo,
+        descricao,
+        criadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toISOString(),
+      });
+
+      navigate(`/objetivos/${docRef.id}/fases`);
+    } catch (error) {
+      console.error("Erro ao salvar objetivo:", error);
+    }
   };
 
   return (
