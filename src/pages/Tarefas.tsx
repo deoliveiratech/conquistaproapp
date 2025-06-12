@@ -68,7 +68,7 @@ export default function Tarefas() {
   return (
     <div className="max-w-xl mx-auto p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold mb-4" style={{cursor: 'pointer'}} onClick={() => (navigate(`/objetivos/${objetivoId}/fases`))}>Fase: {tituloFase}</h1>
+        <h1 className="text-2xl font-bold mb-4" style={{color: 'indigo', cursor: 'pointer'}} onClick={() => (navigate(`/objetivos/${objetivoId}/fases`))}>Fase: {tituloFase}</h1>
         <button
           onClick={() => navigate(`/objetivos/${objetivoId}/fases/${faseId}/nova-tarefa`)}
           className="mb-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"

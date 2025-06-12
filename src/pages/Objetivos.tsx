@@ -36,7 +36,7 @@ export default function Objetivos() {
         // sincroniza com IndexedDB
         await dbLocal.objetivos.clear();
         await dbLocal.objetivos.bulkAdd(lista);
-        console.log(lista);
+        // console.log(lista);
       } catch (err) {
         console.warn("Erro ao acessar Firestore, carregando do IndexedDB:", err);
         const local = await dbLocal.objetivos.toArray();
@@ -50,7 +50,7 @@ export default function Objetivos() {
   return (
     <main className="p-6 max-w-xl mx-auto">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Meus Objetivos</h1>
+        <h1 className="text-3xl font-bold text-gray-900" style={{color: 'indigo', cursor: 'pointer'}}>Meus Objetivos</h1>
         <Link
           to="/novo-objetivo"
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded shadow-md transition-colors duration-200 text-sm font-medium"
