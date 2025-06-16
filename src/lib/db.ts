@@ -14,6 +14,7 @@ export interface Fase {
   objetivoId: string;
   titulo: string;
   ordem: number;
+  tarefas?: Tarefa[];
 }
 
 export interface Tarefa {

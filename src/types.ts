@@ -10,6 +10,7 @@ export interface Fase {
   id: string;
   titulo: string;
   ordem: number;
+  objetivoId: string; 
   tarefas?: Tarefa[];
 }
 
