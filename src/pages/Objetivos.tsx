@@ -1,16 +1,16 @@
+//Objetivos.tsx
 import { useEffect, useState } from "react";
 import {
   collection,
   getDocs,
   doc,
-  getDoc,
   updateDoc,
   Timestamp,
 } from "firebase/firestore";
 import { db as firestore } from "../lib/firebase";
 import { db as dbLocal } from "../lib/db";
 import { Link } from "react-router-dom";
-import type { Objetivo, Fase, Tarefa } from "../lib/db";
+import type { Objetivo } from "../lib/db";
 
 export default function Objetivos() {
   const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
@@ -51,7 +51,10 @@ export default function Objetivos() {
         await dbLocal.objetivos.bulkAdd(lista);
 
         const progresso: Record<string, number> = {};
+        
+        // Calcular progresso de cada objetivo
         for (const obj of lista) {
+          if (!obj.id) continue;
           const fasesSnap = await getDocs(
             collection(firestore, "objetivos", obj.id, "fases")
           );
@@ -89,6 +92,7 @@ export default function Objetivos() {
   }, []);
 
   const iniciarEdicao = (obj: Objetivo) => {
+    if (!obj.id) return;
     setEditandoId(obj.id);
     setEdicao({ titulo: obj.titulo, descricao: obj.descricao || "" });
     setErroTitulo(false);
@@ -148,6 +152,7 @@ export default function Objetivos() {
       ) : (
         <section className="space-y-6">
           {objetivos.map((obj) => {
+            if (!obj.id) return null; // Garantir que o ID exista
             const emEdicao = editandoId === obj.id;
             return (
               <article
@@ -180,7 +185,7 @@ export default function Objetivos() {
                   {emEdicao ? (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => salvarEdicao(obj.id)}
+                        onClick={() => salvarEdicao(obj.id ? obj.id : "")}
                         className="text-sm text-green-600 hover:text-green-800"
                       >
                         💾 Salvar

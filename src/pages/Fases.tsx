@@ -101,7 +101,8 @@ export default function Fases() {
           .toArray();
 
         for (const fase of fasesLocais) {
-          const tarefas = await dbLocal.tarefas.where("faseId").equals(fase.id ?? "").toArray();
+          if (!fase.id) continue;
+          const tarefas = await dbLocal.tarefas.where("faseId").equals(fase.id).toArray();
           fase.tarefas = tarefas;
         }
 
@@ -162,7 +163,7 @@ export default function Fases() {
                 {isAberta && (
                   <div className="mt-4 space-y-2">
                     <ul className="space-y-2">
-                      {fase.tarefas
+                      {(fase.tarefas ?? [])
                         .sort((a, b) => a.ordem - b.ordem)
                         .map((tarefa) => (
                           <li
@@ -187,17 +188,15 @@ export default function Fases() {
                         ))}
                     </ul>
                     <p className="text-sm font-bold text-gray-700">
-                      Total de {fase.tarefas.length} tarefa
-                      {fase.tarefas.length !== 1 ? "s" : ""}
-                      <span> </span>
-                      <Link
+                      Total de {(fase.tarefas ?? []).length} tarefa
+                      {(fase.tarefas ?? []).length !== 1 ? "s" : ""}
+                    </p>
+                    <Link
                       to={`/objetivos/${objetivoId}/fases/${fase.id}/tarefas`}
                       className="inline-block mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
-                      Gerenciar
+                      Gerenciar Tarefas
                     </Link>
-                    </p>
-                    
                   </div>
                 )}
               </article>

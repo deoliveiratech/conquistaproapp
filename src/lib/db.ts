@@ -10,7 +10,7 @@ export interface Objetivo {
 }
 
 export interface Fase {
-  id?: string;
+  id: string;
   objetivoId: string;
   titulo: string;
   ordem: number;

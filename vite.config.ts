@@ -8,22 +8,20 @@ export default defineConfig({
   plugins: [react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'ConquistaProApp',
         short_name: 'ConquistaPro',
-        description: 'Acompanhe seus objetivos e tarefas',
-        theme_color: '#d6f5d6',
-        background_color: '#d6f5d6',
-        display: 'standalone',
-        start_url: '/',
+        description: 'App de metas, fases e tarefas',
+        theme_color: '#ffffff',
         icons: [
           {
-            src: 'pwa-icon-192.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'pwa-icon-512.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
           },

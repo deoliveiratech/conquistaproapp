@@ -35,7 +35,9 @@ export default function NovaTarefa() {
         faseId,
       });
 
-      navigate(`/objetivos/${objetivoId}/fases/${faseId}/tarefas`);
+      // navigate(`/objetivos/${objetivoId}/fases/${faseId}/tarefas`);
+      setNome("");
+      // setOrdem(1);
     } catch (error) {
       console.error("Erro ao salvar tarefa:", error);
     }
