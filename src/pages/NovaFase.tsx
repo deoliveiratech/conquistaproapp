@@ -34,7 +34,7 @@ export default function NovaFase() {
         objetivoId,
       });
 
-      navigate(`/objetivos/${objetivoId}`);
+      navigate(`/objetivos/${objetivoId}/fases`);
     } catch (error) {
       console.error("Erro ao salvar fase:", error);
     }
