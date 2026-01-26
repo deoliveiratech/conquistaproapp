@@ -5,6 +5,9 @@ export interface Objetivo {
   id?: string;
   titulo: string;
   descricao?: string;
+  categoriaId?: string;
+  subcategoriaId?: string;
+  ordem: number;
   criadoEm?: string | null;      // ISO string
   atualizadoEm?: string | null;  // ISO string
 }
@@ -25,6 +28,7 @@ export interface Tarefa {
   concluida: boolean;
   descricao?: string;
   vencimento?: string;
+  arquivos?: { nome: string; url: string; tipo: string }[];
 }
 
 class WeGoalDB extends Dexie {
@@ -35,7 +39,7 @@ class WeGoalDB extends Dexie {
   constructor() {
     super("WeGoalDB");
     this.version(1).stores({
-      objetivos: '++id, titulo, ordem',
+      objetivos: '++id, titulo, ordem, categoriaId, subcategoriaId',
       fases: '++id, objetivoId, titulo, ordem',
       tarefas: '++id, faseId, nome, ordem, concluida',
     });

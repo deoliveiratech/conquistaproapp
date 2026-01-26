@@ -1,10 +1,49 @@
-// src/pages/Fases.tsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, doc, getDoc, getDocs, Timestamp } from "firebase/firestore";
-import { db as firestone } from "../lib/firebase";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  Timestamp,
+  updateDoc,
+  writeBatch,
+  addDoc
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db as firestone, storage } from "../lib/firebase";
 import { db as dbLocal } from "../lib/db";
 import type { Fase, Objetivo, Tarefa } from "../lib/db";
+import {
+  ChevronLeft,
+  Plus,
+  GripVertical,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Circle,
+  Edit3,
+  Save,
+  X,
+  FileIcon,
+  Paperclip,
+  Trash2,
+  Loader2
+} from "lucide-react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+// Quill modules for image handling
+const modules = {
+  toolbar: [
+    [{ 'header': [1, 2, false] }],
+    ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
+    ['link', 'image'],
+    ['clean']
+  ],
+};
 
 function calcularProgresso(tarefas: Tarefa[]) {
   if (tarefas.length === 0) return 0;
@@ -16,194 +55,674 @@ export default function Fases() {
   const { objetivoId } = useParams();
   const [objetivo, setObjetivo] = useState<Objetivo | null>(null);
   const [fases, setFases] = useState<Fase[]>([]);
-  const [aberta, setAberta] = useState<string | null>(null);
+  const [faseAberta, setFaseAberta] = useState<string | null>(null);
+  const [tarefaAberta, setTarefaAberta] = useState<string | null>(null);
+  const [editandoTarefaId, setEditandoTarefaId] = useState<string | null>(null);
+  const [novaTarefaFaseId, setNovaTarefaFaseId] = useState<string | null>(null);
+  const [tarefaEmEdicao, setTarefaEmEdicao] = useState<Partial<Tarefa>>({});
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchFases = async () => {
-      if (!objetivoId) return;
-
-      try {
-        // 🔥 Firestore: objetivo
-        const objRef = doc(firestone, "objetivos", objetivoId);
-        const objSnap = await getDoc(objRef);
-        if (!objSnap.exists()) throw new Error("Objetivo não encontrado");
-
-        const objData = objSnap.data();
-
-        const objetivo: Objetivo = {
-          id: objSnap.id,
-          titulo: objData.titulo,
-          descricao: objData.descricao || "",
-          criadoEm:
-            objData.criadoEm instanceof Timestamp
-              ? objData.criadoEm.toDate().toISOString()
-              : null,
-          atualizadoEm:
-            objData.atualizadoEm instanceof Timestamp
-              ? objData.atualizadoEm.toDate().toISOString()
-              : null,
-        };
-        setObjetivo(objetivo);
-
-        // 🔥 Firestore: fases + tarefas
-        const fasesSnap = await getDocs(collection(firestone, "objetivos", objetivoId, "fases"));
-
-        const todasFases: Fase[] = [];
-
-        for (const faseDoc of fasesSnap.docs) {
-          const faseData = faseDoc.data();
-          const tarefasSnap = await getDocs(
-            collection(firestone, "objetivos", objetivoId, "fases", faseDoc.id, "tarefas")
-          );
-
-          const tarefas: Tarefa[] = tarefasSnap.docs.map((t) => {
-            const data = t.data();
-            return {
-              id: t.id,
-              nome: data.nome,
-              concluida: data.concluida,
-              ordem: data.ordem,
-              faseId: faseDoc.id,
-              objetivoId,
-            };
-          });
-
-          const fase: Fase = {
-            id: faseDoc.id,
-            titulo: faseData.titulo,
-            ordem: faseData.ordem,
-            objetivoId,
-            tarefas,
-          };
-
-          todasFases.push(fase);
-
-          // salva tarefas localmente
-          await dbLocal.tarefas.bulkPut(tarefas);
-        }
-
-        // salva fases e objetivo localmente
-        await dbLocal.fases.clear();
-        await dbLocal.fases.bulkPut(todasFases);
-        await dbLocal.objetivos.put(objetivo);
-
-        setFases(todasFases.sort((a, b) => a.ordem - b.ordem));
-      } catch (err) {
-        console.warn("Erro ao acessar Firestore, carregando do IndexedDB:", err);
-
-        const objetivoLocal = await dbLocal.objetivos.get(objetivoId);
-        if (objetivoLocal) setObjetivo(objetivoLocal);
-
-        const fasesLocais = await dbLocal.fases
-          .where("objetivoId")
-          .equals(objetivoId)
-          .toArray();
-
-        for (const fase of fasesLocais) {
-          if (!fase.id) continue;
-          const tarefas = await dbLocal.tarefas.where("faseId").equals(fase.id).toArray();
-          fase.tarefas = tarefas;
-        }
-
-        setFases(fasesLocais.sort((a, b) => a.ordem - b.ordem));
-      }
-    };
-
     fetchFases();
   }, [objetivoId]);
 
+  const fetchFases = async () => {
+    if (!objetivoId) return;
+
+    // Load local data first
+    try {
+      const localFases = await dbLocal.fases.where("objetivoId").equals(objetivoId).toArray();
+      if (localFases.length > 0) {
+        setFases(localFases.sort((a, b) => a.ordem - b.ordem));
+      }
+    } catch (err) {
+      console.warn("Erro ao carregar dados locais:", err);
+    }
+
+    try {
+      const objRef = doc(firestone, "objetivos", objetivoId);
+      const objSnap = await getDoc(objRef);
+      if (!objSnap.exists()) throw new Error("Objetivo não encontrado");
+
+      const objData = objSnap.data();
+      const objetivo: Objetivo = {
+        id: objSnap.id,
+        titulo: objData.titulo,
+        descricao: objData.descricao || "",
+        ordem: objData.ordem ?? 0,
+        criadoEm: objData.criadoEm instanceof Timestamp ? objData.criadoEm.toDate().toISOString() : null,
+        atualizadoEm: objData.atualizadoEm instanceof Timestamp ? objData.atualizadoEm.toDate().toISOString() : null,
+      };
+      setObjetivo(objetivo);
+
+      const fasesSnap = await getDocs(collection(firestone, "objetivos", objetivoId, "fases"));
+
+      // Fetch all tasks in parallel for better performance
+      const todasFases: Fase[] = await Promise.all(fasesSnap.docs.map(async (faseDoc) => {
+        const faseData = faseDoc.data();
+        const tarefasSnap = await getDocs(
+          collection(firestone, "objetivos", objetivoId, "fases", faseDoc.id, "tarefas")
+        );
+
+        const tarefas: Tarefa[] = tarefasSnap.docs.map((t) => {
+          const data = t.data();
+          return {
+            id: t.id,
+            nome: data.nome,
+            concluida: data.concluida,
+            ordem: data.ordem ?? 0,
+            faseId: faseDoc.id,
+            descricao: data.descricao || "",
+            arquivos: data.arquivos || [],
+          };
+        });
+
+        return {
+          id: faseDoc.id,
+          titulo: faseData.titulo,
+          ordem: faseData.ordem ?? 0,
+          objetivoId,
+          tarefas: tarefas.sort((a, b) => a.ordem - b.ordem),
+        };
+      }));
+
+      const fasesOrdenadas = todasFases.sort((a, b) => a.ordem - b.ordem);
+      setFases(fasesOrdenadas);
+
+      // Sync with local DB
+      await dbLocal.fases.where("objetivoId").equals(objetivoId).delete();
+      await dbLocal.fases.bulkPut(fasesOrdenadas);
+    } catch (err) {
+      console.warn("Erro ao carregar dados do Firestore:", err);
+    }
+  };
+
+  const onDragEndFases = async (result: DropResult) => {
+    if (!result.destination || !objetivoId) return;
+    const items = Array.from(fases);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    const updatedFases = items.map((f, i) => ({ ...f, ordem: i }));
+    setFases(updatedFases);
+
+    try {
+      const batch = writeBatch(firestone);
+      updatedFases.forEach(f => {
+        batch.update(doc(firestone, "objetivos", objetivoId, "fases", f.id), { ordem: f.ordem });
+      });
+      await batch.commit();
+      await dbLocal.fases.bulkPut(updatedFases);
+    } catch (err) {
+      console.error("Erro ao salvar ordem das fases:", err);
+    }
+  };
+
+  const onDragEndTarefas = async (result: DropResult, faseId: string) => {
+    if (!result.destination || !objetivoId) return;
+    const faseIndex = fases.findIndex(f => f.id === faseId);
+    if (faseIndex === -1) return;
+
+    const novasFases = [...fases];
+    const tarefas = Array.from(novasFases[faseIndex].tarefas || []);
+    const [reorderedItem] = tarefas.splice(result.source.index, 1);
+    tarefas.splice(result.destination.index, 0, reorderedItem);
+
+    const updatedTarefas = tarefas.map((t, i) => ({ ...t, ordem: i }));
+    novasFases[faseIndex].tarefas = updatedTarefas;
+    setFases(novasFases);
+
+    try {
+      const batch = writeBatch(firestone);
+      updatedTarefas.forEach(t => {
+        if (t.id) {
+          batch.update(doc(firestone, "objetivos", objetivoId, "fases", faseId, "tarefas", t.id), { ordem: t.ordem });
+        }
+      });
+      await batch.commit();
+      await dbLocal.fases.bulkPut(novasFases);
+    } catch (err) {
+      console.error("Erro ao salvar ordem das tarefas:", err);
+    }
+  };
+
+  const toggleTarefaConcluida = async (faseId: string, tarefa: Tarefa) => {
+    if (!objetivoId || !tarefa.id) return;
+    const novaConcluida = !tarefa.concluida;
+
+    try {
+      await updateDoc(doc(firestone, "objetivos", objetivoId, "fases", faseId, "tarefas", tarefa.id), {
+        concluida: novaConcluida
+      });
+
+      setFases(prev => {
+        const updated = prev.map(f => {
+          if (f.id === faseId) {
+            return {
+              ...f,
+              tarefas: f.tarefas?.map(t => t.id === tarefa.id ? { ...t, concluida: novaConcluida } : t)
+            };
+          }
+          return f;
+        });
+        // Sync with local DB
+        dbLocal.fases.bulkPut(updated);
+        return updated;
+      });
+    } catch (err) {
+      console.error("Erro ao atualizar tarefa:", err);
+    }
+  };
+
+  const iniciarEdicaoTarefa = (tarefa: Tarefa) => {
+    setEditandoTarefaId(tarefa.id || null);
+    setNovaTarefaFaseId(null);
+    setTarefaEmEdicao({ ...tarefa });
+  };
+
+  const iniciarNovaTarefa = (faseId: string) => {
+    setNovaTarefaFaseId(faseId);
+    setEditandoTarefaId(null);
+    setTarefaEmEdicao({
+      nome: "",
+      descricao: "",
+      concluida: false,
+      ordem: (fases.find(f => f.id === faseId)?.tarefas?.length || 0),
+      arquivos: []
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !objetivoId) return;
+
+    setUploading(true);
+    const novosArquivos = [...(tarefaEmEdicao.arquivos || [])];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const storageRef = ref(storage, `objetivos/${objetivoId}/tarefas/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+        novosArquivos.push({
+          nome: file.name,
+          url: url,
+          tipo: file.type
+        });
+      }
+      setTarefaEmEdicao(prev => ({ ...prev, arquivos: novosArquivos }));
+    } catch (err) {
+      console.error("Erro ao fazer upload:", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removerArquivo = (index: number) => {
+    setTarefaEmEdicao(prev => ({
+      ...prev,
+      arquivos: prev.arquivos?.filter((_, i) => i !== index)
+    }));
+  };
+
+  const salvarTarefa = async (faseId: string) => {
+    if (!objetivoId || !tarefaEmEdicao.nome) return;
+
+    try {
+      let novaTarefa: Tarefa | null = null;
+
+      if (editandoTarefaId) {
+        // Editar existente
+        await updateDoc(doc(firestone, "objetivos", objetivoId, "fases", faseId, "tarefas", editandoTarefaId), {
+          nome: tarefaEmEdicao.nome,
+          descricao: tarefaEmEdicao.descricao || "",
+          arquivos: tarefaEmEdicao.arquivos || []
+        });
+      } else {
+        // Criar nova
+        const novaRef = await addDoc(collection(firestone, "objetivos", objetivoId, "fases", faseId, "tarefas"), {
+          nome: tarefaEmEdicao.nome,
+          descricao: tarefaEmEdicao.descricao || "",
+          concluida: false,
+          ordem: tarefaEmEdicao.ordem || 0,
+          arquivos: tarefaEmEdicao.arquivos || []
+        });
+
+        novaTarefa = {
+          id: novaRef.id,
+          faseId,
+          nome: tarefaEmEdicao.nome,
+          descricao: tarefaEmEdicao.descricao || "",
+          concluida: false,
+          ordem: tarefaEmEdicao.ordem || 0,
+          arquivos: tarefaEmEdicao.arquivos || []
+        };
+      }
+
+      setFases(prev => {
+        const updated = prev.map(f => {
+          if (f.id === faseId) {
+            if (editandoTarefaId) {
+              return {
+                ...f,
+                tarefas: f.tarefas?.map(t => t.id === editandoTarefaId ? {
+                  ...t,
+                  nome: tarefaEmEdicao.nome!,
+                  descricao: tarefaEmEdicao.descricao || "",
+                  arquivos: tarefaEmEdicao.arquivos || []
+                } : t)
+              };
+            } else if (novaTarefa) {
+              return {
+                ...f,
+                tarefas: [...(f.tarefas || []), novaTarefa].sort((a, b) => a.ordem - b.ordem)
+              };
+            }
+          }
+          return f;
+        });
+        // Sync with local DB
+        dbLocal.fases.bulkPut(updated);
+        return updated;
+      });
+
+      setEditandoTarefaId(null);
+      setNovaTarefaFaseId(null);
+      setTarefaEmEdicao({});
+    } catch (err) {
+      console.error("Erro ao salvar tarefa:", err);
+    }
+  };
+
+  const excluirTarefa = async (faseId: string, tarefaId: string) => {
+    if (!objetivoId || !window.confirm("Deseja realmente excluir esta tarefa?")) return;
+
+    try {
+      const batch = writeBatch(firestone);
+      batch.delete(doc(firestone, "objetivos", objetivoId, "fases", faseId, "tarefas", tarefaId));
+      await batch.commit();
+
+      setFases(prev => {
+        const updated = prev.map(f => {
+          if (f.id === faseId) {
+            return {
+              ...f,
+              tarefas: f.tarefas?.filter(t => t.id !== tarefaId)
+            };
+          }
+          return f;
+        });
+        // Sync with local DB
+        dbLocal.fases.bulkPut(updated);
+        return updated;
+      });
+    } catch (err) {
+      console.error("Erro ao excluir tarefa:", err);
+    }
+  };
+
+  const excluirFase = async (faseId: string) => {
+    if (!objetivoId || !window.confirm("Deseja realmente excluir esta fase e todas as suas tarefas?")) return;
+
+    try {
+      const batch = writeBatch(firestone);
+
+      // Delete all tasks first
+      const tarefasSnap = await getDocs(collection(firestone, "objetivos", objetivoId, "fases", faseId, "tarefas"));
+      tarefasSnap.docs.forEach(t => {
+        batch.delete(doc(firestone, "objetivos", objetivoId, "fases", faseId, "tarefas", t.id));
+      });
+
+      // Delete the phase
+      batch.delete(doc(firestone, "objetivos", objetivoId, "fases", faseId));
+
+      await batch.commit();
+
+      setFases(prev => {
+        const updated = prev.filter(f => f.id !== faseId);
+        // Sync with local DB
+        dbLocal.fases.delete(faseId);
+        return updated;
+      });
+    } catch (err) {
+      console.error("Erro ao excluir fase:", err);
+    }
+  };
+
   return (
-    <main className="p-6 max-w-xl mx-auto">
-      <header className="flex items-center justify-between mb-6">
-        <h1
-          className="text-2xl font-bold text-indigo-900 cursor-pointer"
-          onClick={() => navigate("/")}
-        >
-          Objetivo: {objetivo?.titulo ?? "Carregando..."}
-        </h1>
+    <div className="max-w-4xl mx-auto pb-20">
+      <header className="flex items-center gap-4 mb-8">
+        <button onClick={() => navigate("/")} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+          <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            {objetivo?.titulo ?? "Carregando..."}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Gerencie as fases e tarefas deste objetivo</p>
+        </div>
         <Link
           to={`/objetivos/${objetivoId}/fases/nova`}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow"
+          className="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-sm transition-all text-sm font-semibold flex items-center gap-2"
         >
-          + Nova Fase
+          <Plus size={18} />
+          Nova Fase
         </Link>
       </header>
 
       {fases.length === 0 ? (
-        <p className="text-gray-500 text-center mt-12">
-          Nenhuma fase ainda. Crie a primeira! 📌
-        </p>
+        <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+          <p className="text-gray-400 dark:text-gray-500">Nenhuma fase cadastrada.</p>
+        </div>
       ) : (
-        <section className="space-y-6">
-          {fases.map((fase) => {
-            const progresso = calcularProgresso(fase.tarefas || []);
-            const isAberta = aberta === fase.id;
+        <DragDropContext onDragEnd={onDragEndFases}>
+          <Droppable droppableId="fases">
+            {(provided) => (
+              <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
+                {fases.map((fase, index) => {
+                  const progresso = calcularProgresso(fase.tarefas || []);
+                  const isAberta = faseAberta === fase.id;
 
-            return (
-              <article
-                key={fase.id}
-                className="border rounded-lg p-4 bg-white shadow-md transition-shadow duration-200"
-              >
-                <header
-                  onClick={() => setAberta(isAberta ? null : fase.id)}
-                  className="flex justify-between items-center cursor-pointer"
-                >
-                  <h2 className="font-semibold text-lg text-indigo-900">{fase.titulo}</h2>
-                  <span>{isAberta ? "🔼" : "🔽"}</span>
-                </header>
-
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full"
-                    style={{ width: `${progresso}%` }}
-                  />
-                </div>
-
-                {isAberta && (
-                  <div className="mt-4 space-y-2">
-                    <ul className="space-y-2">
-                      {(fase.tarefas ?? [])
-                        .sort((a, b) => a.ordem - b.ordem)
-                        .map((tarefa) => (
-                          <li
-                            key={tarefa.id}
-                            className={`flex justify-between items-center p-3 rounded border ${
-                              tarefa.concluida
-                                ? "bg-green-100 border-green-300"
-                                : "bg-gray-100 border-gray-300"
+                  return (
+                    <Draggable key={fase.id} draggableId={fase.id} index={index}>
+                      {(provided, snapshot) => (
+                        <article
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`bg-white dark:bg-gray-800 rounded-2xl border transition-all ${snapshot.isDragging ? "shadow-2xl ring-2 ring-indigo-500 z-50" : "shadow-sm border-gray-200 dark:border-gray-700"
                             }`}
-                          >
-                            <span
-                              className={
-                                tarefa.concluida
-                                  ? "line-through text-gray-500"
-                                  : undefined
-                              }
+                        >
+                          <div className="p-4 flex items-center gap-3">
+                            <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400">
+                              <GripVertical size={20} />
+                            </div>
+                            <div
+                              className="flex-1 cursor-pointer"
+                              onClick={() => setFaseAberta(isAberta ? null : fase.id)}
                             >
-                              {tarefa.nome}
-                            </span>
-                            {tarefa.concluida ? "✅" : "⬜"}
-                          </li>
-                        ))}
-                    </ul>
-                    <p className="text-sm font-bold text-gray-700">
-                      Total de {(fase.tarefas ?? []).length} tarefa
-                      {(fase.tarefas ?? []).length !== 1 ? "s" : ""}
-                    </p>
-                    <Link
-                      to={`/objetivos/${objetivoId}/fases/${fase.id}/tarefas`}
-                      className="inline-block mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Gerenciar Tarefas
-                    </Link>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </section>
+                              <div className="flex items-center justify-between">
+                                <h2 className="font-bold text-gray-800 dark:text-gray-100 text-lg">{fase.titulo}</h2>
+                                <div className="flex items-center gap-4">
+                                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-md">
+                                    {progresso}%
+                                  </span>
+                                  {isAberta ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                                </div>
+                              </div>
+                              <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                                <div
+                                  className="bg-indigo-500 h-full transition-all duration-500"
+                                  style={{ width: `${progresso}%` }}
+                                />
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                excluirFase(fase.id);
+                              }}
+                              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                              title="Excluir Fase"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+
+                          {isAberta && (
+                            <div className="px-4 pb-4 border-t border-gray-50 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-900/10">
+                              <div className="flex items-center justify-between py-4">
+                                <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Tarefas</h3>
+                                <button
+                                  onClick={() => iniciarNovaTarefa(fase.id)}
+                                  className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-xs font-bold flex items-center gap-1"
+                                >
+                                  <Plus size={14} /> Adicionar Tarefa
+                                </button>
+                              </div>
+
+                              <DragDropContext onDragEnd={(res) => onDragEndTarefas(res, fase.id)}>
+                                <Droppable droppableId={`tarefas-${fase.id}`}>
+                                  {(provided) => (
+                                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+                                      {/* Form para Nova Tarefa */}
+                                      {novaTarefaFaseId === fase.id && (
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-indigo-500 p-4 shadow-lg animate-in fade-in zoom-in duration-200">
+                                          <div className="space-y-4">
+                                            <input
+                                              type="text"
+                                              value={tarefaEmEdicao.nome}
+                                              onChange={e => setTarefaEmEdicao(p => ({ ...p, nome: e.target.value }))}
+                                              className="w-full text-lg font-bold border-b border-gray-200 dark:border-gray-700 bg-transparent text-gray-800 dark:text-gray-100 focus:border-indigo-500 outline-none py-1"
+                                              placeholder="Título da nova tarefa"
+                                              autoFocus
+                                            />
+                                            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                              <ReactQuill
+                                                theme="snow"
+                                                value={tarefaEmEdicao.descricao || ""}
+                                                onChange={val => setTarefaEmEdicao(p => ({ ...p, descricao: val }))}
+                                                modules={modules}
+                                                placeholder="Detalhes da tarefa..."
+                                              />
+                                            </div>
+
+                                            {/* File Upload Section */}
+                                            <div className="space-y-2">
+                                              <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                                <Paperclip size={14} /> Anexos
+                                              </label>
+                                              <div className="flex flex-wrap gap-2">
+                                                {tarefaEmEdicao.arquivos?.map((arq, i) => (
+                                                  <div key={i} className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg text-sm group">
+                                                    <FileIcon size={14} className="text-indigo-500" />
+                                                    <span className="text-gray-700 dark:text-gray-200 truncate max-w-[150px]">{arq.nome}</span>
+                                                    <button onClick={() => removerArquivo(i)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                                      <X size={14} />
+                                                    </button>
+                                                  </div>
+                                                ))}
+                                                <label className="cursor-pointer flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                                                  {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                                  {uploading ? "Enviando..." : "Anexar Arquivo"}
+                                                  <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                                                </label>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex justify-end gap-2 pt-2">
+                                              <button
+                                                onClick={() => setNovaTarefaFaseId(null)}
+                                                className="px-4 py-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-2"
+                                              >
+                                                <X size={16} /> Cancelar
+                                              </button>
+                                              <button
+                                                onClick={() => salvarTarefa(fase.id)}
+                                                disabled={!tarefaEmEdicao.nome || uploading}
+                                                className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+                                              >
+                                                <Save size={16} /> Criar Tarefa
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {fase.tarefas?.map((tarefa, tIndex) => {
+                                        const isTarefaAberta = tarefaAberta === tarefa.id;
+                                        const isEditando = editandoTarefaId === tarefa.id;
+
+                                        return (
+                                          <Draggable key={tarefa.id} draggableId={tarefa.id!} index={tIndex}>
+                                            {(provided, tSnapshot) => (
+                                              <div
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                className={`bg-white dark:bg-gray-800 rounded-xl border transition-all ${tSnapshot.isDragging ? "shadow-lg ring-2 ring-indigo-400 z-50" : "border-gray-200 dark:border-gray-700"
+                                                  }`}
+                                              >
+                                                <div className="p-3 flex items-center gap-3">
+                                                  <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600">
+                                                    <GripVertical size={16} />
+                                                  </div>
+                                                  <button
+                                                    onClick={() => toggleTarefaConcluida(fase.id, tarefa)}
+                                                    className={`transition-colors ${tarefa.concluida ? "text-green-500" : "text-gray-300 dark:text-gray-600 hover:text-indigo-400"}`}
+                                                  >
+                                                    {tarefa.concluida ? <CheckCircle2 size={22} /> : <Circle size={22} />}
+                                                  </button>
+
+                                                  <div
+                                                    className="flex-1 cursor-pointer"
+                                                    onClick={() => setTarefaAberta(isTarefaAberta ? null : tarefa.id!)}
+                                                  >
+                                                    <span className={`font-medium ${tarefa.concluida ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-700 dark:text-gray-200"}`}>
+                                                      {tarefa.nome}
+                                                    </span>
+                                                    {tarefa.arquivos && tarefa.arquivos.length > 0 && (
+                                                      <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                        <Paperclip size={10} /> {tarefa.arquivos.length}
+                                                      </span>
+                                                    )}
+                                                  </div>
+
+                                                  <div className="flex items-center gap-1">
+                                                    <button
+                                                      onClick={() => iniciarEdicaoTarefa(tarefa)}
+                                                      className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                                                      title="Editar Tarefa"
+                                                    >
+                                                      <Edit3 size={16} />
+                                                    </button>
+                                                    <button
+                                                      onClick={() => excluirTarefa(fase.id, tarefa.id!)}
+                                                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                                      title="Excluir Tarefa"
+                                                    >
+                                                      <Trash2 size={16} />
+                                                    </button>
+                                                  </div>
+                                                </div>
+
+                                                {(isTarefaAberta || isEditando) && (
+                                                  <div className="px-10 pb-4 pt-2 border-t border-gray-50 dark:border-gray-700">
+                                                    {isEditando ? (
+                                                      <div className="space-y-4">
+                                                        <input
+                                                          type="text"
+                                                          value={tarefaEmEdicao.nome}
+                                                          onChange={e => setTarefaEmEdicao(p => ({ ...p, nome: e.target.value }))}
+                                                          className="w-full text-lg font-bold border-b border-gray-200 dark:border-gray-700 bg-transparent text-gray-800 dark:text-gray-100 focus:border-indigo-500 outline-none py-1"
+                                                          placeholder="Título da tarefa"
+                                                        />
+                                                        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                                          <ReactQuill
+                                                            theme="snow"
+                                                            value={tarefaEmEdicao.descricao || ""}
+                                                            onChange={val => setTarefaEmEdicao(p => ({ ...p, descricao: val }))}
+                                                            modules={modules}
+                                                            placeholder="Detalhes da tarefa..."
+                                                          />
+                                                        </div>
+
+                                                        {/* File Upload Section for Edit */}
+                                                        <div className="space-y-2">
+                                                          <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                                            <Paperclip size={14} /> Anexos
+                                                          </label>
+                                                          <div className="flex flex-wrap gap-2">
+                                                            {tarefaEmEdicao.arquivos?.map((arq, i) => (
+                                                              <div key={i} className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg text-sm group">
+                                                                <FileIcon size={14} className="text-indigo-500" />
+                                                                <span className="text-gray-700 dark:text-gray-200 truncate max-w-[150px]">{arq.nome}</span>
+                                                                <button onClick={() => removerArquivo(i)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                                                  <X size={14} />
+                                                                </button>
+                                                              </div>
+                                                            ))}
+                                                            <label className="cursor-pointer flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                                                              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                                              {uploading ? "Enviando..." : "Anexar Arquivo"}
+                                                              <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                                                            </label>
+                                                          </div>
+                                                        </div>
+
+                                                        <div className="flex justify-end gap-2">
+                                                          <button
+                                                            onClick={() => setEditandoTarefaId(null)}
+                                                            className="px-4 py-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-2"
+                                                          >
+                                                            <X size={16} /> Cancelar
+                                                          </button>
+                                                          <button
+                                                            onClick={() => salvarTarefa(fase.id)}
+                                                            disabled={!tarefaEmEdicao.nome || uploading}
+                                                            className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+                                                          >
+                                                            <Save size={16} /> Salvar
+                                                          </button>
+                                                        </div>
+                                                      </div>
+                                                    ) : (
+                                                      <div className="space-y-4">
+                                                        <div className="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-400">
+                                                          {tarefa.descricao ? (
+                                                            <div dangerouslySetInnerHTML={{ __html: tarefa.descricao }} />
+                                                          ) : (
+                                                            <p className="italic text-gray-400 dark:text-gray-500">Sem descrição detalhada.</p>
+                                                          )}
+                                                        </div>
+
+                                                        {/* Display Files */}
+                                                        {tarefa.arquivos && tarefa.arquivos.length > 0 && (
+                                                          <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                            <h4 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Arquivos Anexados</h4>
+                                                            <div className="flex flex-wrap gap-2">
+                                                              {tarefa.arquivos.map((arq, i) => (
+                                                                <a
+                                                                  key={i}
+                                                                  href={arq.url}
+                                                                  target="_blank"
+                                                                  rel="noopener noreferrer"
+                                                                  className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-xl text-sm hover:border-indigo-500 transition-colors group"
+                                                                >
+                                                                  <FileIcon size={16} className="text-indigo-500" />
+                                                                  <span className="text-gray-700 dark:text-gray-200 font-medium">{arq.nome}</span>
+                                                                </a>
+                                                              ))}
+                                                            </div>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </Draggable>
+                                        );
+                                      })}
+                                      {provided.placeholder}
+                                    </div>
+                                  )}
+                                </Droppable>
+                              </DragDropContext>
+                            </div>
+                          )}
+                        </article>
+                      )}
+                    </Draggable>
+                  );
+                })}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
-    </main>
+    </div>
   );
 }
