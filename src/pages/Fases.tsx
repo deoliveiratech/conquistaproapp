@@ -428,20 +428,22 @@ export default function Fases() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
-      <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => navigate("/")} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-          <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            {objetivo?.titulo ?? "Carregando..."}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Gerencie as fases e tarefas deste objetivo</p>
+    <div className="max-w-4xl mx-auto pb-20 px-2">
+      <header className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate("/")} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+            <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />
+          </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 line-clamp-1">
+              {objetivo?.titulo ?? "Carregando..."}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">Gerencie as fases e tarefas</p>
+          </div>
         </div>
         <Link
           to={`/objetivos/${objetivoId}/fases/nova`}
-          className="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-sm transition-all text-sm font-semibold flex items-center gap-2"
+          className="sm:ml-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl shadow-sm transition-all text-sm font-semibold flex items-center justify-center gap-2"
         >
           <Plus size={18} />
           Nova Fase
@@ -475,13 +477,13 @@ export default function Fases() {
                               <GripVertical size={20} />
                             </div>
                             <div
-                              className="flex-1 cursor-pointer"
+                              className="flex-1 cursor-pointer min-w-0"
                               onClick={() => setFaseAberta(isAberta ? null : fase.id)}
                             >
-                              <div className="flex items-center justify-between">
-                                <h2 className="font-bold text-gray-800 dark:text-gray-100 text-lg">{fase.titulo}</h2>
-                                <div className="flex items-center gap-4">
-                                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-md">
+                              <div className="flex items-center justify-between gap-2">
+                                <h2 className="font-bold text-gray-800 dark:text-gray-100 text-base sm:text-lg truncate">{fase.titulo}</h2>
+                                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                                  <span className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-md">
                                     {progresso}%
                                   </span>
                                   {isAberta ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
@@ -567,17 +569,17 @@ export default function Fases() {
                                               </div>
                                             </div>
 
-                                            <div className="flex justify-end gap-2 pt-2">
+                                            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
                                               <button
                                                 onClick={() => setNovaTarefaFaseId(null)}
-                                                className="px-4 py-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-2"
+                                                className="px-4 py-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center justify-center gap-2"
                                               >
                                                 <X size={16} /> Cancelar
                                               </button>
                                               <button
                                                 onClick={() => salvarTarefa(fase.id)}
                                                 disabled={!tarefaEmEdicao.nome || uploading}
-                                                className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+                                                className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
                                               >
                                                 <Save size={16} /> Criar Tarefa
                                               </button>
@@ -611,14 +613,14 @@ export default function Fases() {
                                                   </button>
 
                                                   <div
-                                                    className="flex-1 cursor-pointer"
+                                                    className="flex-1 cursor-pointer min-w-0"
                                                     onClick={() => setTarefaAberta(isTarefaAberta ? null : tarefa.id!)}
                                                   >
-                                                    <span className={`font-medium ${tarefa.concluida ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-700 dark:text-gray-200"}`}>
+                                                    <span className={`font-medium block truncate ${tarefa.concluida ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-700 dark:text-gray-200"}`}>
                                                       {tarefa.nome}
                                                     </span>
                                                     {tarefa.arquivos && tarefa.arquivos.length > 0 && (
-                                                      <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                                                         <Paperclip size={10} /> {tarefa.arquivos.length}
                                                       </span>
                                                     )}
@@ -686,17 +688,17 @@ export default function Fases() {
                                                           </div>
                                                         </div>
 
-                                                        <div className="flex justify-end gap-2">
+                                                        <div className="flex flex-col sm:flex-row justify-end gap-2">
                                                           <button
                                                             onClick={() => setEditandoTarefaId(null)}
-                                                            className="px-4 py-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center gap-2"
+                                                            className="px-4 py-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors flex items-center justify-center gap-2"
                                                           >
                                                             <X size={16} /> Cancelar
                                                           </button>
                                                           <button
                                                             onClick={() => salvarTarefa(fase.id)}
                                                             disabled={!tarefaEmEdicao.nome || uploading}
-                                                            className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+                                                            className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
                                                           >
                                                             <Save size={16} /> Salvar
                                                           </button>

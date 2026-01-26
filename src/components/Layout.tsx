@@ -31,7 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors duration-300">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors duration-300 overflow-x-hidden">
             {/* Top Menu - Fixed */}
             <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-50 flex items-center justify-between px-4 md:px-6 shadow-sm transition-colors">
                 <div className="flex items-center gap-2">
@@ -42,13 +42,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={toggleTheme}
-                        className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                        title={theme === "light" ? "Mudar para modo escuro" : "Mudar para modo claro"}
-                    >
-                        {theme === "light" ? <Moon size={22} /> : <Sun size={22} />}
-                    </button>
                     <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 overflow-hidden border border-indigo-200 dark:border-indigo-800">
                         {user?.photoURL ? (
                             <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
@@ -82,6 +75,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <aside className="relative ml-auto w-64 h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
                             <span className="font-bold text-gray-800 dark:text-gray-100 text-lg">Menu</span>
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                                title={theme === "light" ? "Mudar para modo escuro" : "Mudar para modo claro"}
+                            >
+                                {theme === "light" ? <Moon size={22} /> : <Sun size={22} />}
+                            </button>
                             <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400">
                                 <X size={24} />
                             </button>

@@ -101,11 +101,11 @@ export default function Categorias() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto px-2">
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Gerenciar Categorias</h1>
 
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 transition-colors">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <input
                         type="text"
                         value={novaCategoria}
@@ -115,7 +115,7 @@ export default function Categorias() {
                     />
                     <button
                         onClick={addCategoria}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
                     >
                         <Plus size={20} />
                         Adicionar
@@ -130,9 +130,9 @@ export default function Categorias() {
                     {categorias.map((cat) => (
                         <div key={cat.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
                             <div className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onClick={() => toggleExpand(cat.id)}>
-                                <div className="flex items-center gap-3">
-                                    {expanded[cat.id] ? <ChevronDown size={20} className="text-gray-400" /> : <ChevronRight size={20} className="text-gray-400" />}
-                                    <span className="font-semibold text-gray-700 dark:text-gray-200">{cat.nome}</span>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    {expanded[cat.id] ? <ChevronDown size={20} className="text-gray-400 shrink-0" /> : <ChevronRight size={20} className="text-gray-400 shrink-0" />}
+                                    <span className="font-semibold text-gray-700 dark:text-gray-200 truncate">{cat.nome}</span>
                                 </div>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); deleteCategoria(cat.id); }}
@@ -146,7 +146,7 @@ export default function Categorias() {
                                 <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
                                     <div className="space-y-2 mb-4">
                                         {cat.subcategorias?.map((sub) => (
-                                            <div key={sub.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 ml-6 transition-colors">
+                                            <div key={sub.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 ml-2 sm:ml-6 transition-colors">
                                                 <span className="text-sm text-gray-600 dark:text-gray-400">{sub.nome}</span>
                                                 <button
                                                     onClick={() => deleteSubcategoria(cat.id, sub.id)}
@@ -157,11 +157,11 @@ export default function Categorias() {
                                             </div>
                                         ))}
                                         {cat.subcategorias?.length === 0 && (
-                                            <p className="text-xs text-gray-400 ml-6 italic">Nenhuma subcategoria cadastrada.</p>
+                                            <p className="text-xs text-gray-400 ml-2 sm:ml-6 italic">Nenhuma subcategoria cadastrada.</p>
                                         )}
                                     </div>
 
-                                    <div className="flex gap-2 ml-6">
+                                    <div className="flex flex-col sm:flex-row gap-2 ml-2 sm:ml-6">
                                         <input
                                             type="text"
                                             value={novaSubcategoria[cat.id] || ""}
