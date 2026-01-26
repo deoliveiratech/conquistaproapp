@@ -29,8 +29,6 @@ const AppRoutes = () => (
         <Route path="/categorias" element={<Categorias />} />
         <Route path="/objetivos/:objetivoId/fases" element={<Fases />} />
         <Route path="/objetivos/:objetivoId/fases/nova" element={<NovaFase />} />
-        <Route path="/objetivos/:objetivoId/fases" element={<Fases />} />
-        <Route path="/objetivos/:objetivoId/fases/nova" element={<NovaFase />} />
         {/* <Route path="/register" element={<Register />} /> */}
 
         {/* Private routes */}

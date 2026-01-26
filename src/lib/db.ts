@@ -10,6 +10,7 @@ export interface Objetivo {
   ordem: number;
   criadoEm?: string | null;      // ISO string
   atualizadoEm?: string | null;  // ISO string
+  progresso?: number;
 }
 
 export interface Fase {

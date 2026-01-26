@@ -64,7 +64,17 @@ export default function Objetivos() {
     try {
       const local = await dbLocal.objetivos.toArray();
       if (local.length > 0) {
-        setObjetivos(local.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)));
+        const sorted = local.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+        setObjetivos(sorted);
+
+        // Populate progress state from local data
+        const localProgresso: Record<string, number> = {};
+        sorted.forEach(obj => {
+          if (obj.id && obj.progresso !== undefined) {
+            localProgresso[obj.id] = obj.progresso;
+          }
+        });
+        setProgressoPorObjetivo(localProgresso);
       }
     } catch (err) {
       console.warn("Erro ao carregar dados locais:", err);
@@ -83,6 +93,7 @@ export default function Objetivos() {
           categoriaId: data.categoriaId || "",
           subcategoriaId: data.subcategoriaId || "",
           ordem: data.ordem ?? 0,
+          progresso: data.progresso ?? 0,
           criadoEm:
             data.criadoEm instanceof Timestamp
               ? data.criadoEm.toDate().toISOString()
@@ -96,10 +107,6 @@ export default function Objetivos() {
 
       const listaOrdenada = lista.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
       setObjetivos(listaOrdenada);
-
-      // Sync with local DB
-      await dbLocal.objetivos.clear();
-      await dbLocal.objetivos.bulkPut(listaOrdenada);
 
       const progresso: Record<string, number> = {};
 
@@ -132,6 +139,15 @@ export default function Objetivos() {
       }));
 
       setProgressoPorObjetivo(progresso);
+
+      // Sync with local DB including progress
+      const listaComProgresso = listaOrdenada.map(obj => ({
+        ...obj,
+        progresso: progresso[obj.id!] || 0
+      }));
+
+      await dbLocal.objetivos.clear();
+      await dbLocal.objetivos.bulkPut(listaComProgresso);
     } catch (err) {
       console.warn("Erro ao acessar Firestore:", err);
     }
@@ -231,10 +247,10 @@ export default function Objetivos() {
   return (
     <div className="max-w-4xl mx-auto">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
+        {/* <div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">🎯 MetasPro</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie suas metas e conquistas</p>
-        </div>
+        </div> */}
         <Link
           to="/novo-objetivo"
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl shadow-md transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2"

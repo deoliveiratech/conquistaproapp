@@ -8,7 +8,8 @@ import {
   Timestamp,
   updateDoc,
   writeBatch,
-  addDoc
+  addDoc,
+  serverTimestamp
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db as firestone, storage } from "../lib/firebase";
@@ -138,6 +139,37 @@ export default function Fases() {
     }
   };
 
+  const atualizarProgressoObjetivo = async (fasesParaCalcular: Fase[]) => {
+    if (!objetivoId) return;
+
+    let totalTarefas = 0;
+    let concluidas = 0;
+
+    fasesParaCalcular.forEach(f => {
+      const tarefas = f.tarefas || [];
+      totalTarefas += tarefas.length;
+      concluidas += tarefas.filter(t => t.concluida).length;
+    });
+
+    const novoProgresso = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+
+    try {
+      // Update Firestore
+      await updateDoc(doc(firestone, "objetivos", objetivoId), {
+        progresso: novoProgresso,
+        atualizadoEm: serverTimestamp()
+      });
+
+      // Update Dexie
+      await dbLocal.objetivos.update(objetivoId, {
+        progresso: novoProgresso,
+        atualizadoEm: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Erro ao atualizar progresso do objetivo:", err);
+    }
+  };
+
   const onDragEndFases = async (result: DropResult) => {
     if (!result.destination || !objetivoId) return;
     const items = Array.from(fases);
@@ -208,6 +240,7 @@ export default function Fases() {
         });
         // Sync with local DB
         dbLocal.fases.bulkPut(updated);
+        atualizarProgressoObjetivo(updated);
         return updated;
       });
     } catch (err) {
@@ -325,6 +358,7 @@ export default function Fases() {
         });
         // Sync with local DB
         dbLocal.fases.bulkPut(updated);
+        atualizarProgressoObjetivo(updated);
         return updated;
       });
 
@@ -356,6 +390,7 @@ export default function Fases() {
         });
         // Sync with local DB
         dbLocal.fases.bulkPut(updated);
+        atualizarProgressoObjetivo(updated);
         return updated;
       });
     } catch (err) {
@@ -384,6 +419,7 @@ export default function Fases() {
         const updated = prev.filter(f => f.id !== faseId);
         // Sync with local DB
         dbLocal.fases.delete(faseId);
+        atualizarProgressoObjetivo(updated);
         return updated;
       });
     } catch (err) {

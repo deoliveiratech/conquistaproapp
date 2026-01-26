@@ -5,8 +5,8 @@ This template provides a minimal setup to get React working in Vite, TypeScript,
 ## Getting Started 🚀
 
 1. Clone the repo.
-2. Install dependencies: `pnpm install`
-3. Start the dev server: `pnpm dev`
+2. Install dependencies: `npm install`
+3. Start the dev server: `npm run dev`
 
 ### Or
 
