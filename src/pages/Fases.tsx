@@ -661,46 +661,51 @@ export default function Fases() {
                                                 className={`bg-white dark:bg-gray-800 rounded-xl border transition-all ${tSnapshot.isDragging ? "shadow-lg ring-2 ring-indigo-400 z-50" : "border-gray-200 dark:border-gray-700"
                                                   }`}
                                               >
-                                                <div className="p-3 flex items-center gap-3">
-                                                  <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600">
-                                                    <GripVertical size={16} />
-                                                  </div>
-                                                  <button
-                                                    onClick={() => toggleTarefaConcluida(fase.id, tarefa)}
-                                                    className={`transition-colors ${tarefa.concluida ? "text-green-500" : "text-gray-300 dark:text-gray-600 hover:text-indigo-400"}`}
-                                                  >
-                                                    {tarefa.concluida ? <CheckCircle2 size={22} /> : <Circle size={22} />}
-                                                  </button>
-
-                                                  <div
-                                                    className="flex-1 cursor-pointer min-w-0"
-                                                    onClick={() => setTarefaAberta(isTarefaAberta ? null : tarefa.id!)}
-                                                  >
-                                                    <span className={`font-medium block truncate ${tarefa.concluida ? "text-indigo-600 dark:text-indigo-400" : "text-gray-700 dark:text-gray-200"}`}>
-                                                      {tarefa.nome}
-                                                    </span>
-                                                    {tarefa.arquivos && tarefa.arquivos.length > 0 && (
-                                                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                                                        <Paperclip size={10} /> {tarefa.arquivos.length}
+                                                <div className="p-3">
+                                                  <div className="flex items-start gap-3">
+                                                    <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 mt-1">
+                                                      <GripVertical size={16} />
+                                                    </div>
+                                                    <div
+                                                      className="flex-1 cursor-pointer min-w-0"
+                                                      onClick={() => setTarefaAberta(isTarefaAberta ? null : tarefa.id!)}
+                                                    >
+                                                      <span className={`font-medium block break-words ${tarefa.concluida ? "text-indigo-600 dark:text-indigo-400" : "text-gray-700 dark:text-gray-200"}`}>
+                                                        {tarefa.nome}
                                                       </span>
-                                                    )}
+                                                      {tarefa.arquivos && tarefa.arquivos.length > 0 && (
+                                                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                          <Paperclip size={10} /> {tarefa.arquivos.length}
+                                                        </span>
+                                                      )}
+                                                    </div>
                                                   </div>
 
-                                                  <div className="flex items-center gap-1">
+                                                  <div className="mt-3 pt-3 border-t border-gray-50 dark:border-gray-700/50 flex items-center justify-between ml-7">
                                                     <button
-                                                      onClick={() => iniciarEdicaoTarefa(tarefa)}
-                                                      className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                                                      title="Editar Tarefa"
+                                                      onClick={() => toggleTarefaConcluida(fase.id, tarefa)}
+                                                      className={`flex items-center gap-2 text-xs font-bold transition-colors ${tarefa.concluida ? "text-green-500" : "text-gray-400 dark:text-gray-500 hover:text-indigo-400"}`}
                                                     >
-                                                      <Edit3 size={16} />
+                                                      {tarefa.concluida ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+                                                      {tarefa.concluida ? "Concluída" : "Marcar como concluída"}
                                                     </button>
-                                                    <button
-                                                      onClick={() => excluirTarefa(fase.id, tarefa.id!)}
-                                                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                                      title="Excluir Tarefa"
-                                                    >
-                                                      <Trash2 size={16} />
-                                                    </button>
+
+                                                    <div className="flex items-center gap-1">
+                                                      <button
+                                                        onClick={() => iniciarEdicaoTarefa(tarefa)}
+                                                        className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                                                        title="Editar Tarefa"
+                                                      >
+                                                        <Edit3 size={18} />
+                                                      </button>
+                                                      <button
+                                                        onClick={() => excluirTarefa(fase.id, tarefa.id!)}
+                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                                        title="Excluir Tarefa"
+                                                      >
+                                                        <Trash2 size={18} />
+                                                      </button>
+                                                    </div>
                                                   </div>
                                                 </div>
 

@@ -28,11 +28,19 @@ export default function Login() {
 
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
+        setError("");
         try {
             await signInWithPopup(auth, provider);
             navigate("/");
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            console.error("Erro no Google Login:", err);
+            if (err.code === "auth/unauthorized-domain") {
+                setError("Este domínio não está autorizado no Firebase. Adicione o domínio da Netlify nas configurações de autenticação do Firebase.");
+            } else if (err.code === "auth/popup-closed-by-user") {
+                // Silently handle user closing the popup
+            } else {
+                setError("Ocorreu um erro ao entrar com Google. Tente novamente.");
+            }
         }
     };
 

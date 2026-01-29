@@ -195,43 +195,48 @@ export default function Tarefas() {
         {tarefas.map((tarefa) => (
           <div
             key={tarefa.id}
-            className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:shadow-md"
+            className="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:shadow-md"
           >
-            <button
-              onClick={() => alternarConclusao(tarefa)}
-              className={`transition-colors ${tarefa.concluida ? "text-green-500" : "text-gray-300 dark:text-gray-600 hover:text-indigo-400"}`}
-            >
-              {tarefa.concluida ? <CheckCircle2 size={24} /> : <Circle size={24} />}
-            </button>
+            <div className="flex items-start gap-3 w-full">
+              {editando === tarefa.id ? (
+                <input
+                  className="flex-grow bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  value={novoNome}
+                  onChange={(e) => setNovoNome(e.target.value)}
+                  onBlur={() => salvarEdicao(tarefa.id!)}
+                  onKeyDown={(e) => e.key === "Enter" && salvarEdicao(tarefa.id!)}
+                  autoFocus
+                />
+              ) : (
+                <span
+                  className={`flex-grow text-lg font-medium cursor-pointer transition-colors break-words ${tarefa.concluida ? "text-indigo-600 dark:text-indigo-400" : "text-gray-700 dark:text-gray-200"
+                    }`}
+                  onClick={() => {
+                    setEditando(tarefa.id!);
+                    setNovoNome(tarefa.nome);
+                  }}
+                >
+                  {tarefa.nome}
+                </span>
+              )}
+            </div>
 
-            {editando === tarefa.id ? (
-              <input
-                className="flex-grow bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                value={novoNome}
-                onChange={(e) => setNovoNome(e.target.value)}
-                onBlur={() => salvarEdicao(tarefa.id!)}
-                onKeyDown={(e) => e.key === "Enter" && salvarEdicao(tarefa.id!)}
-                autoFocus
-              />
-            ) : (
-              <span
-                className={`flex-grow text-lg font-medium cursor-pointer transition-colors ${tarefa.concluida ? "text-indigo-600 dark:text-indigo-400" : "text-gray-700 dark:text-gray-200"
-                  }`}
-                onClick={() => {
-                  setEditando(tarefa.id!);
-                  setNovoNome(tarefa.nome);
-                }}
+            <div className="mt-4 pt-3 border-t border-gray-50 dark:border-gray-700 flex items-center justify-between w-full">
+              <button
+                onClick={() => alternarConclusao(tarefa)}
+                className={`flex items-center gap-2 text-sm font-bold transition-colors ${tarefa.concluida ? "text-green-500" : "text-gray-400 dark:text-gray-500 hover:text-indigo-400"}`}
               >
-                {tarefa.nome}
-              </span>
-            )}
+                {tarefa.concluida ? <CheckCircle2 size={22} /> : <Circle size={22} />}
+                {tarefa.concluida ? "Concluída" : "Marcar como concluída"}
+              </button>
 
-            <button
-              onClick={() => excluirTarefa(tarefa.id!)}
-              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-            >
-              <Trash2 size={20} />
-            </button>
+              <button
+                onClick={() => excluirTarefa(tarefa.id!)}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
           </div>
         ))}
         {tarefas.length === 0 && (
