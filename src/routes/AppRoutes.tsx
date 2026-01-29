@@ -5,31 +5,24 @@ import NovoObjetivo from "@/pages/NovoObjetivo";
 import Fases from "@/pages/Fases";
 import NovaFase from "@/pages/NovaFase";
 import Categorias from "@/pages/Categorias";
-// import Register from "@/pages/Register";
-// import Dashboard from "@/pages/Dashboard";
-// import Aula from "@/pages/Aula";
-// import AdminAulaCorrecao from "@/pages//admin/AdminAulaCorrecao";
-// import RegisterProfessor from "@/pages/RegisterProfessor";
-// import ProfDashboard from '@/pages/ProfDashboard';
-// import AdminAlunos from "@/pages/admin/AdminAlunos";
-// import CadastrarAula from "@/pages/CadastrarAula";
-// import AdminAulas from "@/pages/admin/AdminAulas";
-// import AdminAulaForm from "@/pages/admin/AdminAulaForm";
-// import PainelPresencas from "@/pages/admin/PainelPresencas";
-
-// import { PrivateRoute } from "@/components/PrivateRoute";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import Profile from "@/pages/Profile";
+import { PrivateRoute } from "@/components/PrivateRoute";
 
 const AppRoutes = () => (
   <Router>
     <Layout>
       <Routes>
         {/* Public routes can be added here if needed */}
-        <Route path="/" element={<Objetivos />} />
-        <Route path="/novo-objetivo" element={<NovoObjetivo />} />
-        <Route path="/categorias" element={<Categorias />} />
-        <Route path="/objetivos/:objetivoId/fases" element={<Fases />} />
-        <Route path="/objetivos/:objetivoId/fases/nova" element={<NovaFase />} />
-        {/* <Route path="/register" element={<Register />} /> */}
+        <Route path="/" element={<PrivateRoute><Objetivos /></PrivateRoute>} />
+        <Route path="/novo-objetivo" element={<PrivateRoute><NovoObjetivo /></PrivateRoute>} />
+        <Route path="/categorias" element={<PrivateRoute><Categorias /></PrivateRoute>} />
+        <Route path="/objetivos/:objetivoId/fases" element={<PrivateRoute><Fases /></PrivateRoute>} />
+        <Route path="/objetivos/:objetivoId/fases/nova" element={<PrivateRoute><NovaFase /></PrivateRoute>} />
+        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* Private routes */}
         {/* <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />

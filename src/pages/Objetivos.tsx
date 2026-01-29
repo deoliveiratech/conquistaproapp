@@ -24,9 +24,11 @@ export default function Objetivos() {
   const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
   const [progressoPorObjetivo, setProgressoPorObjetivo] = useState<Record<string, number>>({});
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [edicao, setEdicao] = useState<{ titulo: string; descricao: string }>({
+  const [edicao, setEdicao] = useState<{ titulo: string; descricao: string; categoriaId: string; subcategoriaId: string }>({
     titulo: "",
     descricao: "",
+    categoriaId: "",
+    subcategoriaId: "",
   });
   const [erroTitulo, setErroTitulo] = useState(false);
 
@@ -200,7 +202,12 @@ export default function Objetivos() {
   const iniciarEdicao = (obj: Objetivo) => {
     if (!obj.id) return;
     setEditandoId(obj.id);
-    setEdicao({ titulo: obj.titulo, descricao: obj.descricao || "" });
+    setEdicao({
+      titulo: obj.titulo,
+      descricao: obj.descricao || "",
+      categoriaId: obj.categoriaId || "",
+      subcategoriaId: obj.subcategoriaId || ""
+    });
     setErroTitulo(false);
   };
 
@@ -225,7 +232,13 @@ export default function Objetivos() {
       setObjetivos((prev) =>
         prev.map((o) =>
           o.id === id
-            ? { ...o, titulo: edicao.titulo, descricao: edicao.descricao }
+            ? {
+              ...o,
+              titulo: edicao.titulo,
+              descricao: edicao.descricao,
+              categoriaId: edicao.categoriaId,
+              subcategoriaId: edicao.subcategoriaId
+            }
             : o
         )
       );
@@ -234,6 +247,8 @@ export default function Objetivos() {
       await dbLocal.objetivos.update(id, {
         titulo: edicao.titulo,
         descricao: edicao.descricao,
+        categoriaId: edicao.categoriaId,
+        subcategoriaId: edicao.subcategoriaId,
         atualizadoEm: new Date().toISOString()
       });
 
@@ -246,22 +261,12 @@ export default function Objetivos() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        {/* <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">🎯 MetasPro</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie suas metas e conquistas</p>
-        </div> */}
-        <Link
-          to="/novo-objetivo"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl shadow-md transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2"
-        >
-          <PlusCircle size={20} />
-          Novo Objetivo
-        </Link>
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        {/* Removed Novo Objetivo button as requested */}
       </header>
 
       {/* Filters Section */}
-      <section className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8 space-y-4 transition-colors">
+      <section className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-4 space-y-4 transition-colors">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input
@@ -390,16 +395,43 @@ export default function Objetivos() {
                               </div>
 
                               {emEdicao ? (
-                                <textarea
-                                  value={edicao.descricao}
-                                  onChange={(e) =>
-                                    setEdicao((p) => ({ ...p, descricao: e.target.value }))
-                                  }
-                                  className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-lg w-full mb-4 focus:ring-2 focus:ring-indigo-500 outline-none min-h-[80px]"
-                                  placeholder="Descrição (opcional)"
-                                />
+                                <div className="space-y-4 mb-4">
+                                  <textarea
+                                    value={edicao.descricao}
+                                    onChange={(e) =>
+                                      setEdicao((p) => ({ ...p, descricao: e.target.value }))
+                                    }
+                                    className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-lg w-full focus:ring-2 focus:ring-indigo-500 outline-none min-h-[80px]"
+                                    placeholder="Descrição (opcional)"
+                                  />
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <select
+                                      value={edicao.categoriaId}
+                                      onChange={(e) => setEdicao(p => ({ ...p, categoriaId: e.target.value, subcategoriaId: "" }))}
+                                      className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                      <option value="">Selecione a Categoria</option>
+                                      {categorias.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                                      ))}
+                                    </select>
+
+                                    <select
+                                      value={edicao.subcategoriaId}
+                                      onChange={(e) => setEdicao(p => ({ ...p, subcategoriaId: e.target.value }))}
+                                      disabled={!edicao.categoriaId}
+                                      className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                                    >
+                                      <option value="">Selecione a Subcategoria</option>
+                                      {categorias.find(c => c.id === edicao.categoriaId)?.subcategorias?.map(sub => (
+                                        <option key={sub.id} value={sub.id}>{sub.nome}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
                               ) : (
-                                <p className="text-gray-600 dark:text-gray-400 mb-6 line-clamp-2">
+                                <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
                                   {obj.descricao || "Sem descrição"}
                                 </p>
                               )}

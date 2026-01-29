@@ -215,7 +215,7 @@ export default function Tarefas() {
               />
             ) : (
               <span
-                className={`flex-grow text-lg font-medium cursor-pointer transition-colors ${tarefa.concluida ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-200"
+                className={`flex-grow text-lg font-medium cursor-pointer transition-colors ${tarefa.concluida ? "text-indigo-600 dark:text-indigo-400" : "text-gray-700 dark:text-gray-200"
                   }`}
                 onClick={() => {
                   setEditando(tarefa.id!);

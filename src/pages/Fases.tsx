@@ -62,6 +62,8 @@ export default function Fases() {
   const [novaTarefaFaseId, setNovaTarefaFaseId] = useState<string | null>(null);
   const [tarefaEmEdicao, setTarefaEmEdicao] = useState<Partial<Tarefa>>({});
   const [uploading, setUploading] = useState(false);
+  const [editandoFaseId, setEditandoFaseId] = useState<string | null>(null);
+  const [novoTituloFase, setNovoTituloFase] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -168,6 +170,38 @@ export default function Fases() {
     } catch (err) {
       console.error("Erro ao atualizar progresso do objetivo:", err);
     }
+  };
+
+  const salvarTituloFase = async (faseId: string) => {
+    if (!objetivoId || !novoTituloFase.trim()) {
+      setEditandoFaseId(null);
+      return;
+    }
+
+    try {
+      const faseRef = doc(firestone, "objetivos", objetivoId, "fases", faseId);
+      await updateDoc(faseRef, { titulo: novoTituloFase });
+
+      setFases(prev => {
+        const updated = prev.map(f => f.id === faseId ? { ...f, titulo: novoTituloFase } : f);
+        dbLocal.fases.bulkPut(updated);
+        return updated;
+      });
+      setEditandoFaseId(null);
+    } catch (err) {
+      console.error("Erro ao salvar título da fase:", err);
+    }
+  };
+
+  const copiarDescricao = (html: string) => {
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    const text = temp.textContent || temp.innerText || "";
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Descrição copiada para o clipboard!");
+    }).catch(err => {
+      console.error("Erro ao copiar:", err);
+    });
   };
 
   const onDragEndFases = async (result: DropResult) => {
@@ -477,11 +511,37 @@ export default function Fases() {
                               <GripVertical size={20} />
                             </div>
                             <div
-                              className="flex-1 cursor-pointer min-w-0"
-                              onClick={() => setFaseAberta(isAberta ? null : fase.id)}
+                              className="flex-1 min-w-0"
+                              onClick={() => !editandoFaseId && setFaseAberta(isAberta ? null : fase.id)}
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <h2 className="font-bold text-gray-800 dark:text-gray-100 text-base sm:text-lg truncate">{fase.titulo}</h2>
+                                {editandoFaseId === fase.id ? (
+                                  <div className="flex-1 flex gap-2" onClick={e => e.stopPropagation()}>
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      value={novoTituloFase}
+                                      onChange={e => setNovoTituloFase(e.target.value)}
+                                      onKeyDown={e => e.key === "Enter" && salvarTituloFase(fase.id)}
+                                      onBlur={() => salvarTituloFase(fase.id)}
+                                      className="flex-1 bg-gray-50 dark:bg-gray-900 border-b-2 border-indigo-500 text-gray-800 dark:text-gray-100 outline-none font-bold text-base sm:text-lg"
+                                    />
+                                  </div>
+                                ) : (
+                                  <h2
+                                    className="font-bold text-gray-800 dark:text-gray-100 text-base sm:text-lg truncate group flex items-center gap-2 cursor-pointer"
+                                    onClick={(e) => {
+                                      if (isAberta) {
+                                        e.stopPropagation();
+                                        setEditandoFaseId(fase.id);
+                                        setNovoTituloFase(fase.titulo);
+                                      }
+                                    }}
+                                  >
+                                    {fase.titulo}
+                                    <Edit3 size={14} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-500 transition-all shrink-0" />
+                                  </h2>
+                                )}
                                 <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                                   <span className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-md">
                                     {progresso}%
@@ -616,7 +676,7 @@ export default function Fases() {
                                                     className="flex-1 cursor-pointer min-w-0"
                                                     onClick={() => setTarefaAberta(isTarefaAberta ? null : tarefa.id!)}
                                                   >
-                                                    <span className={`font-medium block truncate ${tarefa.concluida ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-700 dark:text-gray-200"}`}>
+                                                    <span className={`font-medium block truncate ${tarefa.concluida ? "text-indigo-600 dark:text-indigo-400" : "text-gray-700 dark:text-gray-200"}`}>
                                                       {tarefa.nome}
                                                     </span>
                                                     {tarefa.arquivos && tarefa.arquivos.length > 0 && (
@@ -706,6 +766,17 @@ export default function Fases() {
                                                       </div>
                                                     ) : (
                                                       <div className="space-y-4">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                          <h4 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Descrição</h4>
+                                                          {tarefa.descricao && (
+                                                            <button
+                                                              onClick={() => copiarDescricao(tarefa.descricao!)}
+                                                              className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/40 px-2 py-1 rounded-md transition-colors"
+                                                            >
+                                                              <Paperclip size={12} /> Copiar
+                                                            </button>
+                                                          )}
+                                                        </div>
                                                         <div className="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-400">
                                                           {tarefa.descricao ? (
                                                             <div dangerouslySetInnerHTML={{ __html: tarefa.descricao }} />
