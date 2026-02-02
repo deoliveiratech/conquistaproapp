@@ -32,10 +32,22 @@ export interface Tarefa {
   arquivos?: { nome: string; url: string; tipo: string }[];
 }
 
+export interface SyncQueueItem {
+  id?: number;
+  type: 'CREATE' | 'UPDATE' | 'DELETE';
+  collection: string;
+  docId: string;
+  data: any;
+  timestamp: number;
+  status: 'PENDING' | 'SYNCING' | 'ERROR';
+  error?: string;
+}
+
 class WeGoalDB extends Dexie {
   objetivos!: Table<Objetivo, string>;
   fases!: Table<Fase, string>;
   tarefas!: Table<Tarefa, string>;
+  syncQueue!: Table<SyncQueueItem, number>;
 
   constructor() {
     super("WeGoalDB");
@@ -43,6 +55,7 @@ class WeGoalDB extends Dexie {
       objetivos: '++id, titulo, ordem, categoriaId, subcategoriaId',
       fases: '++id, objetivoId, titulo, ordem',
       tarefas: '++id, faseId, nome, ordem, concluida',
+      syncQueue: '++id, type, collection, docId, timestamp, status'
     });
   }
 }

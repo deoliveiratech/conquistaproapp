@@ -1,18 +1,14 @@
 import { useEffect, useState, useMemo } from "react";
-import {
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  Timestamp,
-  writeBatch
-} from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db as firestore } from "../lib/firebase";
 import { db as dbLocal } from "../lib/db";
 import { Link } from "react-router-dom";
 import type { Objetivo } from "../lib/db";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Search, Filter, GripVertical, Edit2, Check, X as XIcon, PlusCircle, ChevronRight } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { SyncService } from "../lib/sync";
+import { useSync } from "../hooks/useSync";
 
 interface Categoria {
   id: string;
@@ -38,9 +34,24 @@ export default function Objetivos() {
   const [filtroSubcategoria, setFiltroSubcategoria] = useState("");
   const [categorias, setCategorias] = useState<Categoria[]>([]);
 
+  // Reactive query from Dexie
+  const objetivosLocal = useLiveQuery(
+    () => dbLocal.objetivos.orderBy("ordem").toArray(),
+    []
+  );
+
+  const { triggerSync } = useSync();
+
+  useEffect(() => {
+    if (objetivosLocal) {
+      setObjetivos(objetivosLocal);
+      calcularProgressoLocal(objetivosLocal);
+    }
+  }, [objetivosLocal]);
+
   useEffect(() => {
     fetchCategorias();
-    fetchObjetivos();
+    triggerSync();
   }, []);
 
   const fetchCategorias = async () => {
@@ -61,99 +72,27 @@ export default function Objetivos() {
     }
   };
 
-  const fetchObjetivos = async () => {
-    // Load local data first for immediate display
-    try {
-      const local = await dbLocal.objetivos.toArray();
-      if (local.length > 0) {
-        const sorted = local.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-        setObjetivos(sorted);
+  const calcularProgressoLocal = async (lista: Objetivo[]) => {
+    const progresso: Record<string, number> = {};
+    for (const obj of lista) {
+      if (!obj.id) continue;
+      // We need to fetch phases for each objective to calculate progress
+      // Queries are fast in Dexie
+      const fases = await dbLocal.fases.where("objetivoId").equals(obj.id).toArray();
+      let total = 0;
+      let concluidas = 0;
 
-        // Populate progress state from local data
-        const localProgresso: Record<string, number> = {};
-        sorted.forEach(obj => {
-          if (obj.id && obj.progresso !== undefined) {
-            localProgresso[obj.id] = obj.progresso;
-          }
-        });
-        setProgressoPorObjetivo(localProgresso);
+      for (const f of fases) {
+        const tarefas = await dbLocal.tarefas.where("faseId").equals(f.id).toArray();
+        total += tarefas.length;
+        concluidas += tarefas.filter(t => t.concluida).length;
       }
-    } catch (err) {
-      console.warn("Erro ao carregar dados locais:", err);
+
+      progresso[obj.id] = total > 0 ? Math.round((concluidas / total) * 100) : 0;
     }
-
-    try {
-      const snapshot = await getDocs(collection(firestore, "objetivos"));
-
-      const lista: Objetivo[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
-
-        return {
-          id: doc.id,
-          titulo: data.titulo,
-          descricao: data.descricao || "",
-          categoriaId: data.categoriaId || "",
-          subcategoriaId: data.subcategoriaId || "",
-          ordem: data.ordem ?? 0,
-          progresso: data.progresso ?? 0,
-          criadoEm:
-            data.criadoEm instanceof Timestamp
-              ? data.criadoEm.toDate().toISOString()
-              : null,
-          atualizadoEm:
-            data.atualizadoEm instanceof Timestamp
-              ? data.atualizadoEm.toDate().toISOString()
-              : null,
-        };
-      });
-
-      const listaOrdenada = lista.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-      setObjetivos(listaOrdenada);
-
-      const progresso: Record<string, number> = {};
-
-      // Fetch progress in parallel for better performance
-      await Promise.all(listaOrdenada.map(async (obj) => {
-        if (!obj.id) return;
-        const fasesSnap = await getDocs(
-          collection(firestore, "objetivos", obj.id, "fases")
-        );
-        let total = 0;
-        let concluidas = 0;
-
-        for (const faseDoc of fasesSnap.docs) {
-          const tarefasSnap = await getDocs(
-            collection(
-              firestore,
-              "objetivos",
-              obj.id,
-              "fases",
-              faseDoc.id,
-              "tarefas"
-            )
-          );
-
-          total += tarefasSnap.docs.length;
-          concluidas += tarefasSnap.docs.filter((t) => t.data().concluida).length;
-        }
-
-        progresso[obj.id] = total > 0 ? Math.round((concluidas / total) * 100) : 0;
-      }));
-
-      setProgressoPorObjetivo(progresso);
-
-      // Sync with local DB including progress
-      const listaComProgresso = listaOrdenada.map(obj => ({
-        ...obj,
-        progresso: progresso[obj.id!] || 0
-      }));
-
-      await dbLocal.objetivos.clear();
-      await dbLocal.objetivos.bulkPut(listaComProgresso);
-    } catch (err) {
-      console.warn("Erro ao acessar Firestore:", err);
-    }
+    setProgressoPorObjetivo(progresso);
   };
+
 
   const objetivosFiltrados = useMemo(() => {
     return objetivos.filter(obj => {
@@ -185,15 +124,16 @@ export default function Objetivos() {
     setObjetivos(updatedItems);
 
     try {
-      const batch = writeBatch(firestore);
+      // 1. Update Local (Optimistic)
+      await dbLocal.objetivos.bulkPut(updatedItems);
+
+      // 2. Queue Mutation
       updatedItems.forEach((item) => {
         if (item.id) {
-          const ref = doc(firestore, "objetivos", item.id);
-          batch.update(ref, { ordem: item.ordem });
+          SyncService.enqueueMutation('UPDATE', 'objetivos', item.id, { ordem: item.ordem });
         }
       });
-      await batch.commit();
-      await dbLocal.objetivos.bulkPut(updatedItems);
+
     } catch (err) {
       console.error("Erro ao salvar nova ordem:", err);
     }
@@ -223,34 +163,19 @@ export default function Objetivos() {
     }
 
     try {
-      const ref = doc(firestore, "objetivos", id);
-      await updateDoc(ref, {
-        titulo: edicao.titulo,
-        descricao: edicao.descricao,
-      });
-
-      setObjetivos((prev) =>
-        prev.map((o) =>
-          o.id === id
-            ? {
-              ...o,
-              titulo: edicao.titulo,
-              descricao: edicao.descricao,
-              categoriaId: edicao.categoriaId,
-              subcategoriaId: edicao.subcategoriaId
-            }
-            : o
-        )
-      );
-
-      // Sync with local DB
-      await dbLocal.objetivos.update(id, {
+      const updateData = {
         titulo: edicao.titulo,
         descricao: edicao.descricao,
         categoriaId: edicao.categoriaId,
         subcategoriaId: edicao.subcategoriaId,
         atualizadoEm: new Date().toISOString()
-      });
+      };
+
+      // 1. Update Local
+      await dbLocal.objetivos.update(id, updateData);
+
+      // 2. Queue Mutation
+      await SyncService.enqueueMutation('UPDATE', 'objetivos', id, updateData);
 
       setEditandoId(null);
       setErroTitulo(false);

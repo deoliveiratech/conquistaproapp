@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-} from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db as dbLocal } from "../lib/db";
+import { SyncService } from "../lib/sync";
 import type { Tarefa } from "../lib/db";
 import { ChevronLeft, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
 
@@ -83,60 +77,64 @@ export default function Tarefas() {
   // The `useEffect` hook itself remains in the code, which will lead to a runtime error.
   // This is the most faithful interpretation of the *provided code snippet* for the import line.
 
+  // Reactive query from Dexie
+  const tarefasLocal = useLiveQuery(async () => {
+    if (!faseId) return [];
+    const tarefas = await dbLocal.tarefas.where("faseId").equals(faseId).toArray();
+    return tarefas.sort((a, b) => a.ordem - b.ordem);
+  }, [faseId]);
+
   useEffect(() => {
-    async function fetchTarefas() {
-      if (!objetivoId || !faseId) return;
-
-      const faseRef = doc(db, "objetivos", objetivoId, "fases", faseId);
-      const faseSnap = await getDoc(faseRef);
-      if (faseSnap.exists()) {
-        setTituloFase(faseSnap.data().titulo);
-      }
-
-      const tarefasRef = collection(faseRef, "tarefas");
-      const tarefasSnap = await getDocs(tarefasRef);
-
-      const lista: Tarefa[] = tarefasSnap.docs.map((doc) => ({
-        id: doc.id,
-        nome: doc.data().nome,
-        concluida: doc.data().concluida,
-        ordem: doc.data().ordem,
-        faseId: faseId!,
-      }));
-
-      setTarefas(lista.sort((a, b) => a.ordem - b.ordem));
+    if (tarefasLocal) {
+      setTarefas(tarefasLocal);
     }
+  }, [tarefasLocal]);
 
-    fetchTarefas();
-  }, [objetivoId, faseId]);
+  useEffect(() => {
+    const fetchFaseTitulo = async () => {
+      if (!faseId) return;
+      const fase = await dbLocal.fases.get(faseId);
+      if (fase) {
+        setTituloFase(fase.titulo);
+      }
+      // Could also fetch from background sync if needed
+    };
+    fetchFaseTitulo();
+  }, [faseId]);
 
   const alternarConclusao = async (tarefa: Tarefa) => {
     if (!objetivoId || !faseId || !tarefa.id) return;
+    const novaConcluida = !tarefa.concluida;
 
-    const tarefaRef = doc(db, "objetivos", objetivoId, "fases", faseId, "tarefas", tarefa.id);
-    await updateDoc(tarefaRef, {
-      concluida: !tarefa.concluida,
-    });
-
-    setTarefas((prev) =>
-      prev.map((t) =>
-        t.id === tarefa.id ? { ...t, concluida: !t.concluida } : t
-      )
-    );
+    try {
+      await dbLocal.tarefas.update(tarefa.id, { concluida: novaConcluida });
+      await SyncService.enqueueMutation(
+        'UPDATE',
+        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        tarefa.id,
+        { concluida: novaConcluida }
+      );
+    } catch (err) {
+      console.error("Erro ao atualizar tarefa", err);
+    }
   };
 
   const salvarEdicao = async (id: string) => {
     if (!objetivoId || !faseId || !id || novoNome.trim() === "") return;
 
-    const tarefaRef = doc(db, "objetivos", objetivoId, "fases", faseId, "tarefas", id);
-    await updateDoc(tarefaRef, { nome: novoNome });
-
-    setTarefas((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, nome: novoNome } : t))
-    );
-
-    setEditando(null);
-    setNovoNome("");
+    try {
+      await dbLocal.tarefas.update(id, { nome: novoNome });
+      await SyncService.enqueueMutation(
+        'UPDATE',
+        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        id,
+        { nome: novoNome }
+      );
+      setEditando(null);
+      setNovoNome("");
+    } catch (err) {
+      console.error("Erro ao editar tarefa", err);
+    }
   };
 
   const excluirTarefa = async (id: string) => {
@@ -144,10 +142,16 @@ export default function Tarefas() {
 
     if (!window.confirm("Deseja realmente excluir esta tarefa?")) return;
 
-    const tarefaRef = doc(db, "objetivos", objetivoId, "fases", faseId, "tarefas", id);
-    await deleteDoc(tarefaRef);
-
-    setTarefas((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await dbLocal.tarefas.delete(id);
+      await SyncService.enqueueMutation(
+        'DELETE',
+        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        id
+      );
+    } catch (err) {
+      console.error("Erro ao excluir tarefa", err);
+    }
   };
 
   const progresso =

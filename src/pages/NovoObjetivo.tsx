@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db as firestore } from "../lib/firebase";
 import { db as localDB } from "../lib/db";
+import { SyncService } from "../lib/sync";
 import { ChevronLeft, Save } from "lucide-react";
 
 interface Categoria {
@@ -52,28 +53,13 @@ export default function NovoObjetivo() {
     setLoading(true);
 
     try {
-      // Get current max order
-      const q = query(collection(firestore, "objetivos"), orderBy("ordem", "desc"), limit(1));
-      const snap = await getDocs(q);
-      const lastOrder = snap.docs.length > 0 ? snap.docs[0].data().ordem : -1;
-      const novaOrdem = lastOrder + 1;
+      // Get current max order locally
+      const lastObj = await localDB.objetivos.orderBy("ordem").last();
+      const novaOrdem = lastObj ? lastObj.ordem + 1 : 0;
 
+      const newId = crypto.randomUUID();
       const novoObjetivo = {
-        titulo,
-        descricao,
-        categoriaId,
-        subcategoriaId,
-        ordem: novaOrdem,
-        criadoEm: serverTimestamp(),
-        atualizadoEm: serverTimestamp(),
-      };
-
-      // 1. Salvar no Firestore
-      const docRef = await addDoc(collection(firestore, "objetivos"), novoObjetivo);
-
-      // 2. Salvar no IndexedDB
-      await localDB.objetivos.add({
-        id: docRef.id,
+        id: newId,
         titulo,
         descricao,
         categoriaId,
@@ -81,9 +67,21 @@ export default function NovoObjetivo() {
         ordem: novaOrdem,
         criadoEm: new Date().toISOString(),
         atualizadoEm: new Date().toISOString(),
-      });
+        progresso: 0
+      };
 
-      navigate(`/objetivos/${docRef.id}/fases`);
+      // 1. Salvar no IndexedDB
+      await localDB.objetivos.add(novoObjetivo);
+
+      // 2. Queue Mutation
+      // Note: We need to send the data without the ID field as the document body, 
+      // but SyncService CREATE uses 'set(doc(..., id), data)'.
+      // Our SyncService implementation expects the data to be the object.
+      // We should probably strip 'id' from the data payload if Firestore stores it in metadata.
+      // But storing 'id' in the doc is also fine and often useful.
+      await SyncService.enqueueMutation('CREATE', 'objetivos', newId, novoObjetivo);
+
+      navigate(`/objetivos/${newId}/fases`);
     } catch (error) {
       console.error("Erro ao salvar objetivo:", error);
     } finally {

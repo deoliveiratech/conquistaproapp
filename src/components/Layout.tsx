@@ -17,6 +17,7 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { SyncIndicator } from "./SyncIndicator";
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -158,7 +159,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <span className="text-[10px] font-medium uppercase tracking-wider">Categorias</span>
                 </Link>
             </nav>
-        </div>
+            <SyncIndicator />
+        </div >
     );
 };
 
