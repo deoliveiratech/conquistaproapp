@@ -31,7 +31,7 @@ export default function Objetivos() {
   // Filters state
   const [filtroTexto, setFiltroTexto] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
-  const [filtroSubcategoria, setFiltroSubcategoria] = useState("");
+
   const [categorias, setCategorias] = useState<Categoria[]>([]);
 
   // Reactive query from Dexie
@@ -99,15 +99,11 @@ export default function Objetivos() {
       const matchTexto = obj.titulo.toLowerCase().includes(filtroTexto.toLowerCase()) ||
         (obj.descricao || "").toLowerCase().includes(filtroTexto.toLowerCase());
       const matchCat = !filtroCategoria || obj.categoriaId === filtroCategoria;
-      const matchSub = !filtroSubcategoria || obj.subcategoriaId === filtroSubcategoria;
-      return matchTexto && matchCat && matchSub;
+      return matchTexto && matchCat;
     });
-  }, [objetivos, filtroTexto, filtroCategoria, filtroSubcategoria]);
+  }, [objetivos, filtroTexto, filtroCategoria]);
 
-  const subcategoriasDisponiveis = useMemo(() => {
-    const cat = categorias.find(c => c.id === filtroCategoria);
-    return cat?.subcategorias || [];
-  }, [categorias, filtroCategoria]);
+
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -186,50 +182,36 @@ export default function Objetivos() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-1">
         {/* Removed Novo Objetivo button as requested */}
       </header>
 
       {/* Filters Section */}
-      <section className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-4 space-y-4 transition-colors">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Buscar objetivos..."
-            value={filtroTexto}
-            onChange={(e) => setFiltroTexto(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-700 dark:text-gray-200"
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center gap-2">
+      <section className="bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-2 transition-colors">
+        <h2 className="text-center font-bold text-gray-700 dark:text-gray-200 mb-3 text-sm uppercase tracking-wider">Filtrar Objetivos</h2>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Buscar por título ou descrição..."
+              value={filtroTexto}
+              onChange={(e) => setFiltroTexto(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm text-gray-700 dark:text-gray-200"
+            />
+          </div>
+          <div className="flex items-center gap-2 md:w-1/3">
             <Filter size={18} className="text-gray-400 shrink-0" />
             <select
               value={filtroCategoria}
               onChange={(e) => {
                 setFiltroCategoria(e.target.value);
-                setFiltroSubcategoria("");
               }}
               className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-700 dark:text-gray-200"
             >
               <option value="">Todas as Categorias</option>
               {categorias.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.nome}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter size={18} className="text-gray-400 shrink-0" />
-            <select
-              value={filtroSubcategoria}
-              onChange={(e) => setFiltroSubcategoria(e.target.value)}
-              disabled={!filtroCategoria}
-              className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 text-gray-700 dark:text-gray-200"
-            >
-              <option value="">Todas as Subcategorias</option>
-              {subcategoriasDisponiveis.map(sub => (
-                <option key={sub.id} value={sub.id}>{sub.nome}</option>
               ))}
             </select>
           </div>
