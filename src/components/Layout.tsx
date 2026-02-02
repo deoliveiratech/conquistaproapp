@@ -18,6 +18,9 @@ import { signOut } from "firebase/auth";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { SyncIndicator } from "./SyncIndicator";
+import { useSync } from "@/hooks/useSync";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -28,6 +31,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const { theme, toggleTheme } = useTheme();
     const location = useLocation();
     const navigate = useNavigate();
+    const { isSyncing, triggerSync } = useSync();
+    const isOnline = useOnlineStatus();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const navItems = [
@@ -128,8 +133,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                 </button>
                             )}
                         </nav>
-                        <div className="p-4 border-t dark:border-gray-700 text-xs text-gray-400 text-center">
-                            ConquistaPro v1.0
+                        <div className="p-4 border-t dark:border-gray-700 flex flex-col gap-3">
+                            {/* Mobile Sync Controls */}
+                            <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <div className={`flex items-center gap-2 text-sm font-medium ${isOnline ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                                    {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
+                                    <span>{isOnline ? 'Online' : 'Offline'}</span>
+                                </div>
+                                {isOnline && (
+                                    <button
+                                        onClick={triggerSync}
+                                        disabled={isSyncing}
+                                        className={`p-2 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-200 transition-all ${isSyncing ? 'animate-spin' : ''}`}
+                                        title="Sincronizar agora"
+                                    >
+                                        <RefreshCw size={16} />
+                                    </button>
+                                )}
+                            </div>
+                            <div className="text-xs text-gray-400 text-center">
+                                MetasPro v1.0
+                            </div>
                         </div>
                     </aside>
                 </div>
@@ -159,7 +183,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <span className="text-[10px] font-medium uppercase tracking-wider">Categorias</span>
                 </Link>
             </nav>
-            <SyncIndicator />
+            {/* Hide fixed indicator on mobile if sidebar is open, or keep it. 
+                User complained about mobile menu. We added it there. 
+                We might want to hide the fixed one on small screens to avoid clutter? 
+                For now, we'll keep it as the user didn't explicitly ask to remove it, 
+                just asked to "adjust inside mobile menu". */}
+            <div className="hidden md:block">
+                <SyncIndicator />
+            </div>
         </div >
     );
 };
