@@ -1,44 +1,48 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { collection, addDoc, getDocs, query, orderBy, limit } from "firebase/firestore";
-import { db as firestore } from "../lib/firebase";
-import { db as localDB } from "../lib/db";
+import { db as localDB, Fase } from "../lib/db";
+import { SyncService } from "../lib/sync";
+import { useAuth } from "../context/AuthContext";
 import { ChevronLeft, Save } from "lucide-react";
 
 export default function NovaFase() {
+  const { user } = useAuth();
+  const userId = user?.uid;
   const { objetivoId } = useParams();
   const [titulo, setTitulo] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSalvar = async () => {
-    if (!titulo.trim() || !objetivoId) return;
+    if (!titulo.trim() || !objetivoId || !userId) return;
     setLoading(true);
 
     try {
-      // Get current max order
-      const q = query(collection(firestore, "objetivos", objetivoId, "fases"), orderBy("ordem", "desc"), limit(1));
-      const snap = await getDocs(q);
-      const lastOrder = snap.docs.length > 0 ? snap.docs[0].data().ordem : -1;
-      const novaOrdem = lastOrder + 1;
+      // 1. Get current max order locally (safer for offline)
+      const fasesLocais = await localDB.fases.where("objetivoId").equals(objetivoId).toArray();
+      const novaOrdem = fasesLocais.length > 0
+        ? Math.max(...fasesLocais.map(f => f.ordem)) + 1
+        : 0;
 
-      const faseData = {
-        titulo,
+      const newId = crypto.randomUUID();
+      const novaFase: Fase = {
+        id: newId,
+        userId,
+        objetivoId,
+        titulo: titulo.trim(),
         ordem: novaOrdem,
       };
 
-      // 1. Salvar no Firestore
-      const docRef = await addDoc(
-        collection(firestore, "objetivos", objetivoId, "fases"),
-        faseData
-      );
+      // 2. Save locally
+      await localDB.fases.add(novaFase);
 
-      // 2. Salvar no IndexedDB
-      await localDB.fases.add({
-        ...faseData,
-        id: docRef.id,
-        objetivoId,
-      });
+      // 3. Queue Mutation
+      await SyncService.enqueueMutation(
+        'CREATE',
+        `users/${userId}/objetivos/${objetivoId}/fases`,
+        newId,
+        { titulo: novaFase.titulo, ordem: novaFase.ordem }
+      );
 
       navigate(`/objetivos/${objetivoId}/fases`);
     } catch (error) {
@@ -49,7 +53,7 @@ export default function NovaFase() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto px-2">
       <header className="flex items-center gap-4 mb-8">
         <button onClick={() => navigate(`/objetivos/${objetivoId}/fases`)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
           <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />

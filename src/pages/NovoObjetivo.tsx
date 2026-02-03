@@ -5,6 +5,7 @@ import { db as firestore } from "../lib/firebase";
 import { db as localDB } from "../lib/db";
 import { SyncService } from "../lib/sync";
 import { ChevronLeft, Save } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 interface Categoria {
   id: string;
@@ -13,6 +14,8 @@ interface Categoria {
 }
 
 export default function NovoObjetivo() {
+  const { user } = useAuth();
+  const userId = user?.uid;
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
@@ -49,7 +52,7 @@ export default function NovoObjetivo() {
   }, [categorias, categoriaId]);
 
   const handleSalvar = async () => {
-    if (!titulo.trim()) return;
+    if (!titulo.trim() || !userId) return;
     setLoading(true);
 
     try {
@@ -60,6 +63,7 @@ export default function NovoObjetivo() {
       const newId = crypto.randomUUID();
       const novoObjetivo = {
         id: newId,
+        userId,
         titulo,
         descricao,
         categoriaId,
@@ -74,12 +78,16 @@ export default function NovoObjetivo() {
       await localDB.objetivos.add(novoObjetivo);
 
       // 2. Queue Mutation
-      // Note: We need to send the data without the ID field as the document body, 
-      // but SyncService CREATE uses 'set(doc(..., id), data)'.
-      // Our SyncService implementation expects the data to be the object.
-      // We should probably strip 'id' from the data payload if Firestore stores it in metadata.
-      // But storing 'id' in the doc is also fine and often useful.
-      await SyncService.enqueueMutation('CREATE', 'objetivos', newId, novoObjetivo);
+      await SyncService.enqueueMutation('CREATE', `users/${userId}/objetivos`, newId, {
+        titulo,
+        descricao,
+        categoriaId,
+        subcategoriaId,
+        ordem: novaOrdem,
+        criadoEm: novoObjetivo.criadoEm,
+        atualizadoEm: novoObjetivo.atualizadoEm,
+        progresso: 0
+      });
 
       navigate(`/objetivos/${newId}/fases`);
     } catch (error) {

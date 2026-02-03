@@ -5,7 +5,7 @@ import { db as dbLocal } from "../lib/db";
 import { Link } from "react-router-dom";
 import type { Objetivo } from "../lib/db";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { Search, Filter, GripVertical, Edit2, Check, X as XIcon, PlusCircle, ChevronRight } from "lucide-react";
+import { Search, Filter, GripVertical, Edit2, Check, X as XIcon, PlusCircle, ChevronRight, Trash2 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { SyncService } from "../lib/sync";
 import { useSync } from "../hooks/useSync";
@@ -16,7 +16,11 @@ interface Categoria {
   subcategorias?: { id: string; nome: string }[];
 }
 
+import { useAuth } from "../context/AuthContext";
+
 export default function Objetivos() {
+  const { user } = useAuth();
+  const userId = user?.uid;
   const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
   const [progressoPorObjetivo, setProgressoPorObjetivo] = useState<Record<string, number>>({});
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -35,10 +39,11 @@ export default function Objetivos() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
 
   // Reactive query from Dexie
-  const objetivosLocal = useLiveQuery(
-    () => dbLocal.objetivos.orderBy("ordem").toArray(),
-    []
-  );
+  const objetivosLocal = useLiveQuery(async () => {
+    if (!userId) return [];
+    const objs = await dbLocal.objetivos.where("userId").equals(userId).toArray();
+    return objs.sort((a, b) => a.ordem - b.ordem);
+  }, [userId]);
 
   const { triggerSync } = useSync();
 
@@ -76,8 +81,9 @@ export default function Objetivos() {
     const progresso: Record<string, number> = {};
     for (const obj of lista) {
       if (!obj.id) continue;
-      // We need to fetch phases for each objective to calculate progress
-      // Queries are fast in Dexie
+      // Scoped by tenant via database integrity or extra filter? 
+      // Theoretically, fases/tarefas should be fetched by ID which is unique.
+      // But keeping queries scoped is better.
       const fases = await dbLocal.fases.where("objetivoId").equals(obj.id).toArray();
       let total = 0;
       let concluidas = 0;
@@ -106,7 +112,7 @@ export default function Objetivos() {
 
 
   const onDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
+    if (!result.destination || !userId) return;
 
     const items = Array.from(objetivos);
     const [reorderedItem] = items.splice(result.source.index, 1);
@@ -126,7 +132,7 @@ export default function Objetivos() {
       // 2. Queue Mutation
       updatedItems.forEach((item) => {
         if (item.id) {
-          SyncService.enqueueMutation('UPDATE', 'objetivos', item.id, { ordem: item.ordem });
+          SyncService.enqueueMutation('UPDATE', `users/${userId}/objetivos`, item.id, { ordem: item.ordem });
         }
       });
 
@@ -153,8 +159,8 @@ export default function Objetivos() {
   };
 
   const salvarEdicao = async (id: string) => {
-    if (!edicao.titulo.trim()) {
-      setErroTitulo(true);
+    if (!edicao.titulo.trim() || !userId) {
+      if (!edicao.titulo.trim()) setErroTitulo(true);
       return;
     }
 
@@ -171,12 +177,49 @@ export default function Objetivos() {
       await dbLocal.objetivos.update(id, updateData);
 
       // 2. Queue Mutation
-      await SyncService.enqueueMutation('UPDATE', 'objetivos', id, updateData);
+      await SyncService.enqueueMutation('UPDATE', `users/${userId}/objetivos`, id, updateData);
 
       setEditandoId(null);
       setErroTitulo(false);
     } catch (err) {
       console.error("Erro ao salvar edição:", err);
+    }
+  };
+
+  const excluirObjetivo = async (id: string) => {
+    if (!userId || !window.confirm("Deseja realmente excluir este objetivo e todos os seus dados (fases e tarefas)?")) return;
+
+    try {
+      // 1. Get related phases and tasks for deletion mutations
+      const relatedFases = await dbLocal.fases.where("objetivoId").equals(id).toArray();
+
+      // 2. Local Deletion (Optimistic)
+      await dbLocal.objetivos.delete(id);
+
+      // 3. Queue mutations and delete related records locally
+      await SyncService.enqueueMutation('DELETE', `users/${userId}/objetivos`, id);
+
+      for (const fase of relatedFases) {
+        if (!fase.id) continue;
+        const relatedTarefas = await dbLocal.tarefas.where("faseId").equals(fase.id).toArray();
+
+        // Delete tasks for this phase
+        for (const tarefa of relatedTarefas) {
+          if (tarefa.id) {
+            await SyncService.enqueueMutation('DELETE', `users/${userId}/objetivos/${id}/fases/${fase.id}/tarefas`, tarefa.id);
+            await dbLocal.tarefas.delete(tarefa.id);
+          }
+        }
+
+        // Delete the phase itself
+        await SyncService.enqueueMutation('DELETE', `users/${userId}/objetivos/${id}/fases`, fase.id);
+        await dbLocal.fases.delete(fase.id);
+      }
+
+      setObjetivos(prev => prev.filter(o => o.id !== id));
+    } catch (err) {
+      console.error("Erro ao excluir objetivo:", err);
+      alert("Erro ao excluir objetivo. Verifique o console.");
     }
   };
 
@@ -243,10 +286,10 @@ export default function Objetivos() {
                         <article
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border transition-all duration-200 ${snapshot.isDragging ? "shadow-2xl ring-2 ring-indigo-500 scale-[1.02] z-50" : "shadow-sm border-gray-200 dark:border-gray-700 hover:shadow-md"
+                          className={`bg-white dark:bg-gray-800 rounded-2xl p-3 sm:p-5 border transition-all duration-200 ${snapshot.isDragging ? "shadow-2xl ring-2 ring-indigo-500 scale-[1.02] z-50" : "shadow-sm border-gray-200 dark:border-gray-700 hover:shadow-md"
                             } ${emEdicao ? "ring-2 ring-indigo-500" : ""}`}
                         >
-                          <div className="flex items-start gap-4">
+                          <div className="flex items-start gap-3 sm:gap-4">
                             <div {...provided.dragHandleProps} className="mt-1 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing">
                               <GripVertical size={20} />
                             </div>
@@ -291,13 +334,22 @@ export default function Objetivos() {
                                     </button>
                                   </div>
                                 ) : (
-                                  <button
-                                    onClick={() => iniciarEdicao(obj)}
-                                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                                    title="Editar"
-                                  >
-                                    <Edit2 size={18} />
-                                  </button>
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => iniciarEdicao(obj)}
+                                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                                      title="Editar"
+                                    >
+                                      <Edit2 size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() => excluirObjetivo(obj.id!)}
+                                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                      title="Excluir"
+                                    >
+                                      <Trash2 size={18} />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
 

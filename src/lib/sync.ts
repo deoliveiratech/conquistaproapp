@@ -18,6 +18,8 @@ export class SyncService {
         docId: string,
         data?: any
     ) {
+        // Extract userId if possible or it will be picked up from local object during sync
+        // In this architecture, components should ensure userId is in the data or we provide it here.
         await dbLocal.syncQueue.add({
             type,
             collection: collectionName,
@@ -27,7 +29,6 @@ export class SyncService {
             status: 'PENDING'
         });
 
-        // Try to process immediately if online
         if (navigator.onLine) {
             this.processQueue();
         }
@@ -50,7 +51,7 @@ export class SyncService {
                     await this.syncItem(item);
                     await dbLocal.syncQueue.delete(item.id);
                 } catch (error) {
-                    console.error(`Error syncing item ${item.id}:`, error);
+                    console.error(`[SyncService] Error syncing item ${item.id}:`, error);
                     await dbLocal.syncQueue.update(item.id, {
                         status: 'ERROR',
                         error: JSON.stringify(error)
@@ -64,52 +65,61 @@ export class SyncService {
 
     private static async syncItem(item: SyncQueueItem) {
         const ref = doc(firestore, item.collection, item.docId);
+        // console.log(`[SyncService] Syncing ${item.type} on ${item.collection}/${item.docId}`);
 
         switch (item.type) {
             case 'CREATE':
             case 'UPDATE':
-                // Ensure we don't sync local-only fields if any
-                // Remove undefined values as Firestore doesn't like them
-                const cleanData = JSON.parse(JSON.stringify(item.data));
-                await setDoc(ref, cleanData, { merge: true });
+                const cleanData = item.data ? JSON.parse(JSON.stringify(item.data)) : {};
+                try {
+                    await setDoc(ref, cleanData, { merge: true });
+                    console.log(`[SyncService] Successfully synced ${item.docId}`);
+                } catch (err) {
+                    console.error(`[SyncService] Failed to sync ${item.docId}:`, err);
+                    throw err;
+                }
                 break;
             case 'DELETE':
-                await deleteDoc(ref);
+                try {
+                    await deleteDoc(ref);
+                    // console.log(`[SyncService] Successfully deleted ${item.docId}`);
+                } catch (err) {
+                    console.error(`[SyncService] Failed to delete ${item.docId}:`, err);
+                    throw err;
+                }
                 break;
         }
     }
 
-    static async syncAll() {
-        if (!navigator.onLine) return;
+    static async syncAll(userId: string) {
+        if (!navigator.onLine || !userId) return;
 
         try {
-            // 1. Sync Categorias (assuming flat collection)
-            await getDocs(collection(firestore, "categorias"));
-            // We might want to store categories locally too if not already
-            // For now, focusing on the main structured data: Objetivos -> Fases -> Tarefas
+            // 1. Sync Objetivos
+            const objSnap = await getDocs(collection(firestore, "users", userId, "objetivos"));
+            const objetivos = objSnap.docs.map(d => ({ ...d.data(), id: d.id, userId } as Objetivo));
 
-            // 2. Sync Objetivos
-            const objSnap = await getDocs(collection(firestore, "objetivos"));
-            const objetivos = objSnap.docs.map(d => ({ ...d.data(), id: d.id } as Objetivo));
+            // For now, simple overwrite for this user's data
+            await dbLocal.objetivos.where("userId").equals(userId).delete();
             await dbLocal.objetivos.bulkPut(objetivos);
 
-            // 3. Deep sync for subcollections
-            // This is expensive, optimization: use a recursive function or flat structure in future
             for (const obj of objetivos) {
                 if (!obj.id) continue;
 
-                const fasesSnap = await getDocs(collection(firestore, "objetivos", obj.id, "fases"));
-                const fases = fasesSnap.docs.map(d => ({ ...d.data(), id: d.id, objetivoId: obj.id! } as Fase));
+                const fasesSnap = await getDocs(collection(firestore, "users", userId, "objetivos", obj.id, "fases"));
+                const fases = fasesSnap.docs.map(d => ({ ...d.data(), id: d.id, objetivoId: obj.id!, userId } as Fase));
+                await dbLocal.fases.where("objetivoId").equals(obj.id).delete();
                 await dbLocal.fases.bulkPut(fases);
 
                 for (const fase of fases) {
-                    const tarefasSnap = await getDocs(collection(firestore, "objetivos", obj.id, "fases", fase.id, "tarefas"));
-                    const tarefas = tarefasSnap.docs.map(d => ({ ...d.data(), id: d.id, faseId: fase.id } as Tarefa));
+                    const tarefasSnap = await getDocs(collection(firestore, "users", userId, "objetivos", obj.id, "fases", fase.id, "tarefas"));
+                    const tarefas = tarefasSnap.docs.map(d => ({ ...d.data(), id: d.id, faseId: fase.id, userId } as Tarefa));
+                    await dbLocal.tarefas.where("faseId").equals(fase.id).delete();
                     await dbLocal.tarefas.bulkPut(tarefas);
                 }
             }
         } catch (error) {
-            console.error("Error during full sync:", error);
+            console.error("[SyncService] Error during full sync:", error);
         }
     }
 }

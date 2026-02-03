@@ -3,6 +3,7 @@ import Dexie, { Table } from 'dexie';
 
 export interface Objetivo {
   id?: string;
+  userId?: string;
   titulo: string;
   descricao?: string;
   categoriaId?: string;
@@ -15,6 +16,7 @@ export interface Objetivo {
 
 export interface Fase {
   id: string;
+  userId?: string;
   objetivoId: string;
   titulo: string;
   ordem: number;
@@ -23,6 +25,7 @@ export interface Fase {
 
 export interface Tarefa {
   id?: string;
+  userId?: string;
   faseId: string;
   nome: string;
   ordem: number;
@@ -34,6 +37,7 @@ export interface Tarefa {
 
 export interface SyncQueueItem {
   id?: number;
+  userId?: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   collection: string;
   docId: string;
@@ -51,11 +55,21 @@ class WeGoalDB extends Dexie {
 
   constructor() {
     super("WeGoalDB");
+
+    // Version 1 (Base)
     this.version(1).stores({
       objetivos: '++id, titulo, ordem, categoriaId, subcategoriaId',
       fases: '++id, objetivoId, titulo, ordem',
       tarefas: '++id, faseId, nome, ordem, concluida',
       syncQueue: '++id, type, collection, docId, timestamp, status'
+    });
+
+    // Version 4 (Multi-user isolation: userId instead of tenantId)
+    this.version(4).stores({
+      objetivos: '++id, userId, [userId+ordem], ordem, titulo, categoriaId, subcategoriaId',
+      fases: '++id, userId, objetivoId, [userId+objetivoId+ordem], ordem, titulo',
+      tarefas: '++id, userId, faseId, [userId+faseId+ordem], ordem, nome, concluida',
+      syncQueue: '++id, userId, type, collection, docId, timestamp, status'
     });
   }
 }

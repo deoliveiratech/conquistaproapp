@@ -5,8 +5,11 @@ import { db as dbLocal } from "../lib/db";
 import { SyncService } from "../lib/sync";
 import type { Tarefa } from "../lib/db";
 import { ChevronLeft, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Tarefas() {
+  const { user } = useAuth();
+  const userId = user?.uid;
   const { objetivoId, faseId } = useParams();
   const [tituloFase, setTituloFase] = useState("");
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
@@ -14,75 +17,12 @@ export default function Tarefas() {
   const [novoNome, setNovoNome] = useState<string>("");
   const navigate = useNavigate();
 
-  // The useEffect hook is removed as per the instruction.
-  // However, the instruction only shows the import removal, not the hook itself.
-  // If the instruction meant to remove the hook, it should have been explicit.
-  // Assuming the instruction only refers to the import statement.
-  // Re-reading the instruction: "Remove unused imports and fix type issues."
-  // The `useEffect` import is removed, but the `useEffect` hook itself is still used.
-  // This implies the user made a mistake in the instruction or the provided snippet.
-  // I will keep the useEffect hook and only remove the import if it's truly unused.
-  // In this case, useEffect IS used, so I will NOT remove its import.
-  // The instruction snippet for imports is:
-  // `import { useState } from "react";`
-  // This explicitly removes `useEffect` from the import list.
-  // This means the `useEffect` hook in the code will become an error.
-  // I must follow the instruction faithfully. If the instruction says to remove `useEffect` from imports, I will.
-  // This will lead to a compilation error if the `useEffect` hook is still present.
-  // Let me re-evaluate. The instruction is "Remove unused imports".
-  // The provided snippet `import { useState } from "react";` *removes* `useEffect` from the import list.
-  // But the code *uses* `useEffect`.
-  // This is a contradiction.
-  // "Please make the change faithfully and without making any unrelated edits."
-  // "Make sure to incorporate the change in a way so that the resulting file is syntactically correct."
-  // If I remove `useEffect` from the import, the file will NOT be syntactically correct (or rather, it will have a runtime error for `useEffect` being undefined).
-  // The instruction also says "Remove unused imports". `useEffect` is *used*.
-  // Therefore, the instruction's snippet for imports is incorrect if it intends to remove `useEffect` while it's still used.
-  // I will interpret "Remove unused imports" literally. `useEffect` is used, so it should NOT be removed from imports.
-  // The provided snippet for imports is:
-  // `import { useState } from "react";`
-  // This snippet *explicitly* removes `useEffect`.
-  // This is a conflict between "remove unused imports" and "make the change faithfully" (which includes the snippet).
-  // If I follow the snippet, the code will break. If I follow "remove unused imports", I keep `useEffect`.
-  // The instruction also says "fix type issues". The `!` additions are type fixes.
-  // I will prioritize "syntactically correct" and "remove unused imports".
-  // Since `useEffect` *is* used, it is not an unused import. Therefore, it should remain.
-  // The provided snippet for imports is *wrong* if it implies `useEffect` is unused.
-  // I will keep `useEffect` in the import list.
-
-  // Let's re-read the instruction carefully:
-  // "Instruction: Remove unused imports and fix type issues."
-  // "Code Edit:
-  // ```
-  // // Tarefas.tsx
-  // import { useState } from "react";
-  // import { useParams, useNavigate } from "react-router-dom";
-  // ...
-  // ```"
-  // This *explicitly* shows the `useEffect` import being removed.
-  // This is a direct instruction to change that line.
-  // The conflict is between "remove unused imports" (which implies `useEffect` should stay) and the *provided code snippet* (which explicitly removes it).
-  // I must follow the provided code snippet as it's the concrete change requested.
-  // This means the `useEffect` hook will become an error.
-  // I will proceed with the explicit change in the snippet, even if it causes a logical inconsistency with "remove unused imports" or breaks the code.
-  // The prompt says: "Please make the change faithfully and without making any unrelated edits." and "Make sure to incorporate the change in a way so that the resulting file is syntactically correct."
-  // Removing `useEffect` from the import list while the hook is used will make the file syntactically incorrect at runtime (ReferenceError).
-  // This is a tricky situation.
-  // I will assume the user *intended* for `useEffect` to be removed from the imports, and perhaps they also intended for the `useEffect` hook itself to be removed or refactored, but didn't include that in the instruction.
-  // Given the constraints, I must follow the *explicit* code edit provided.
-  // The explicit code edit for imports is: `import { useState } from "react";`
-  // This means `useEffect` is removed from the import.
-
-  // Final decision: Follow the explicit snippet for imports. This means `useEffect` import is removed.
-  // The `useEffect` hook itself remains in the code, which will lead to a runtime error.
-  // This is the most faithful interpretation of the *provided code snippet* for the import line.
-
   // Reactive query from Dexie
   const tarefasLocal = useLiveQuery(async () => {
-    if (!faseId) return [];
+    if (!faseId || !userId) return [];
     const tarefas = await dbLocal.tarefas.where("faseId").equals(faseId).toArray();
     return tarefas.sort((a, b) => a.ordem - b.ordem);
-  }, [faseId]);
+  }, [faseId, userId]);
 
   useEffect(() => {
     if (tarefasLocal) {
@@ -92,25 +32,24 @@ export default function Tarefas() {
 
   useEffect(() => {
     const fetchFaseTitulo = async () => {
-      if (!faseId) return;
+      if (!faseId || !userId) return;
       const fase = await dbLocal.fases.get(faseId);
       if (fase) {
         setTituloFase(fase.titulo);
       }
-      // Could also fetch from background sync if needed
     };
     fetchFaseTitulo();
-  }, [faseId]);
+  }, [faseId, userId]);
 
   const alternarConclusao = async (tarefa: Tarefa) => {
-    if (!objetivoId || !faseId || !tarefa.id) return;
+    if (!objetivoId || !faseId || !tarefa.id || !userId) return;
     const novaConcluida = !tarefa.concluida;
 
     try {
       await dbLocal.tarefas.update(tarefa.id, { concluida: novaConcluida });
       await SyncService.enqueueMutation(
         'UPDATE',
-        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
         tarefa.id,
         { concluida: novaConcluida }
       );
@@ -120,13 +59,13 @@ export default function Tarefas() {
   };
 
   const salvarEdicao = async (id: string) => {
-    if (!objetivoId || !faseId || !id || novoNome.trim() === "") return;
+    if (!objetivoId || !faseId || !id || novoNome.trim() === "" || !userId) return;
 
     try {
       await dbLocal.tarefas.update(id, { nome: novoNome });
       await SyncService.enqueueMutation(
         'UPDATE',
-        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
         id,
         { nome: novoNome }
       );
@@ -138,7 +77,7 @@ export default function Tarefas() {
   };
 
   const excluirTarefa = async (id: string) => {
-    if (!objetivoId || !faseId || !id) return;
+    if (!objetivoId || !faseId || !id || !userId) return;
 
     if (!window.confirm("Deseja realmente excluir esta tarefa?")) return;
 
@@ -146,7 +85,7 @@ export default function Tarefas() {
       await dbLocal.tarefas.delete(id);
       await SyncService.enqueueMutation(
         'DELETE',
-        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
         id
       );
     } catch (err) {
@@ -199,9 +138,9 @@ export default function Tarefas() {
         {tarefas.map((tarefa) => (
           <div
             key={tarefa.id}
-            className="flex flex-col p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:shadow-md"
+            className="flex flex-col p-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:shadow-md"
           >
-            <div className="flex items-start gap-3 w-full">
+            <div className="flex items-start gap-2 w-full">
               {editando === tarefa.id ? (
                 <input
                   className="flex-grow bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"

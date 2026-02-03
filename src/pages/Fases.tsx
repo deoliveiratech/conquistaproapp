@@ -51,7 +51,11 @@ function calcularProgresso(tarefas: Tarefa[]) {
   return Math.round((concluidas / tarefas.length) * 100);
 }
 
+import { useAuth } from "../context/AuthContext";
+
 export default function Fases() {
+  const { user } = useAuth();
+  const userId = user?.uid;
   const { objetivoId } = useParams();
   const [objetivo, setObjetivo] = useState<Objetivo | null>(null);
   const [fases, setFases] = useState<Fase[]>([]);
@@ -67,9 +71,10 @@ export default function Fases() {
 
   // Reactive query | Offline-First
   const fasesLocal = useLiveQuery(async () => {
-    if (!objetivoId) return [];
+    if (!objetivoId || !userId) return [];
 
     const fases = await dbLocal.fases.where("objetivoId").equals(objetivoId).toArray();
+    // Optional: filter by userId too, but objetivoId implies it
     fases.sort((a, b) => a.ordem - b.ordem);
 
     for (const f of fases) {
@@ -79,7 +84,7 @@ export default function Fases() {
       }
     }
     return fases;
-  }, [objetivoId]);
+  }, [objetivoId, userId]);
 
   const { triggerSync } = useSync();
 
@@ -94,10 +99,10 @@ export default function Fases() {
     // Fetch objective details local or remote
     fetchObjetivoDetalhes();
     triggerSync();
-  }, [objetivoId]);
+  }, [objetivoId, userId]);
 
   const fetchObjetivoDetalhes = async () => {
-    if (!objetivoId) return;
+    if (!objetivoId || !userId) return;
     try {
       const localObj = await dbLocal.objetivos.get(objetivoId);
       if (localObj) {
@@ -105,12 +110,13 @@ export default function Fases() {
         return;
       }
       // If not local, try remote
-      const objRef = doc(firestore, "objetivos", objetivoId);
+      const objRef = doc(firestore, "users", userId, "objetivos", objetivoId);
       const objSnap = await getDoc(objRef);
       if (objSnap.exists()) {
         const data = objSnap.data();
         const obj: Objetivo = {
           id: objSnap.id,
+          userId,
           titulo: data.titulo,
           descricao: data.descricao || "",
           ordem: data.ordem ?? 0,
@@ -118,7 +124,6 @@ export default function Fases() {
           atualizadoEm: data.atualizadoEm instanceof Timestamp ? data.atualizadoEm.toDate().toISOString() : null,
         };
         setObjetivo(obj);
-        // Cache it? Maybe not strictly necessary if SyncService handles it, but good for UX.
       }
     } catch (e) {
       console.error("Error fetching objective details", e);
@@ -126,23 +131,22 @@ export default function Fases() {
   };
 
   const fetchFases = async () => {
-    if (!objetivoId) return;
-    // We primarily rely on SyncService and useLiveQuery.
-    // However, for robust initial loading from empty state, we can keep the fetch logic 
-    // but update LOCAL db instead of state directly.
+    if (!objetivoId || !userId) return;
+
     try {
-      const fasesSnap = await getDocs(collection(firestore, "objetivos", objetivoId, "fases"));
+      const fasesSnap = await getDocs(collection(firestore, "users", userId, "objetivos", objetivoId, "fases"));
 
       const todasFases: Fase[] = await Promise.all(fasesSnap.docs.map(async (faseDoc) => {
         const faseData = faseDoc.data();
         const tarefasSnap = await getDocs(
-          collection(firestore, "objetivos", objetivoId, "fases", faseDoc.id, "tarefas")
+          collection(firestore, "users", userId, "objetivos", objetivoId, "fases", faseDoc.id, "tarefas")
         );
 
         const tarefas: Tarefa[] = tarefasSnap.docs.map((t) => {
           const data = t.data();
           return {
             id: t.id,
+            userId,
             nome: data.nome,
             concluida: data.concluida,
             ordem: data.ordem ?? 0,
@@ -157,11 +161,10 @@ export default function Fases() {
 
         return {
           id: faseDoc.id,
+          userId,
           titulo: faseData.titulo,
           ordem: faseData.ordem ?? 0,
           objetivoId,
-          // tarefas not stored in 'fases' table strictly, but we can if we want? 
-          // Dexie is relational-ish. We store tasks in 'tarefas' table.
         };
       }));
 
@@ -176,9 +179,8 @@ export default function Fases() {
   };
 
 
-
   const salvarTituloFase = async (faseId: string) => {
-    if (!objetivoId || !novoTituloFase.trim()) {
+    if (!objetivoId || !novoTituloFase.trim() || !userId) {
       setEditandoFaseId(null);
       return;
     }
@@ -190,7 +192,7 @@ export default function Fases() {
       await dbLocal.fases.update(faseId, updateData);
 
       // Queue Mutation
-      await SyncService.enqueueMutation('UPDATE', `objetivos/${objetivoId}/fases`, faseId, updateData);
+      await SyncService.enqueueMutation('UPDATE', `users/${userId}/objetivos/${objetivoId}/fases`, faseId, updateData);
 
       setEditandoFaseId(null);
     } catch (err) {
@@ -210,23 +212,22 @@ export default function Fases() {
   };
 
   const onDragEndFases = async (result: DropResult) => {
-    if (!result.destination || !objetivoId) return;
+    if (!result.destination || !objetivoId || !userId) return;
     const items = Array.from(fases);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
     const updatedFases = items.map((f, i) => ({ ...f, ordem: i }));
-    // Optimistic UI update
     setFases(updatedFases);
 
     try {
       // 1. Update Local
       await dbLocal.fases.bulkPut(updatedFases);
 
-      // 2. Queue Mutation (for each item)
+      // 2. Queue Mutation
       updatedFases.forEach(f => {
         if (f.id) {
-          SyncService.enqueueMutation('UPDATE', `objetivos/${objetivoId}/fases`, f.id, { ordem: f.ordem });
+          SyncService.enqueueMutation('UPDATE', `users/${userId}/objetivos/${objetivoId}/fases`, f.id, { ordem: f.ordem });
         }
       });
     } catch (err) {
@@ -235,7 +236,7 @@ export default function Fases() {
   };
 
   const onDragEndTarefas = async (result: DropResult, faseId: string) => {
-    if (!result.destination || !objetivoId) return;
+    if (!result.destination || !objetivoId || !userId) return;
     const faseIndex = fases.findIndex(f => f.id === faseId);
     if (faseIndex === -1) return;
 
@@ -259,7 +260,7 @@ export default function Fases() {
         if (t.id) {
           SyncService.enqueueMutation(
             'UPDATE',
-            `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+            `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
             t.id,
             { ordem: t.ordem }
           );
@@ -271,15 +272,8 @@ export default function Fases() {
   };
 
   const toggleTarefaConcluida = async (faseId: string, tarefa: Tarefa) => {
-    if (!objetivoId || !tarefa.id) return;
+    if (!objetivoId || !tarefa.id || !userId) return;
     const novaConcluida = !tarefa.concluida;
-
-    // Optimistic update state
-    // Actually setFases might be redundant if useLiveQuery updates with local change? 
-    // But instant feedback is good.
-    // However, if we write to DB, useLiveQuery will trigger re-render.
-    // Let's rely on useLiveQuery for the source of truth if it's fast enough.
-    // But for checkbox toggle, we usually want instant feedback.
 
     try {
       // 1. Update Local
@@ -288,27 +282,10 @@ export default function Fases() {
       // 2. Queue Mutation
       await SyncService.enqueueMutation(
         'UPDATE',
-        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
         tarefa.id,
         { concluida: novaConcluida }
       );
-
-      // Trigger progress recalc if needed? 
-      // We can do it manually or let the effect handle it.
-      // But updating 'tarefas' table doesn't automatically update 'objetivos' progress.
-      // We probably should calc and update objective progress too.
-      // But 'atualizarProgressoObjetivo' expects 'Fase[]'.
-      // We can re-fetch or calc locally.
-
-      // Quick recalc based on local state?
-      // Let's leave progress update for background or explicit routine.
-      // Or call it here.
-      // But we need the full list of tasks.
-
-      // For simplicity: Update objective progress locally too
-      // We need to fetch all tasks for this objective to be accurate.
-      // Let's skip complex progress logic here for now, assume generic re-sync or effect handles it?
-      // Wait, 'atualizarProgressoObjetivo' previously updated firestore.
 
     } catch (err) {
       console.error("Erro ao atualizar tarefa:", err);
@@ -335,7 +312,7 @@ export default function Fases() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !objetivoId) return;
+    if (!files || files.length === 0 || !objetivoId || !userId) return; // userId useful for storage path?
 
     setUploading(true);
     const novosArquivos = [...(tarefaEmEdicao.arquivos || [])];
@@ -343,7 +320,8 @@ export default function Fases() {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const storageRef = ref(storage, `objetivos/${objetivoId}/tarefas/${Date.now()}_${file.name}`);
+        // Update Storage path to include userId? Usually good practice.
+        const storageRef = ref(storage, `users/${userId}/objetivos/${objetivoId}/tarefas/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         const url = await getDownloadURL(snapshot.ref);
         novosArquivos.push({
@@ -368,14 +346,13 @@ export default function Fases() {
   };
 
   const salvarTarefa = async (faseId: string) => {
-    if (!objetivoId || !tarefaEmEdicao.nome) return;
+    if (!objetivoId || !tarefaEmEdicao.nome || !userId) return;
 
     try {
       const taskData = {
         nome: tarefaEmEdicao.nome,
         descricao: tarefaEmEdicao.descricao || "",
         arquivos: tarefaEmEdicao.arquivos || [],
-        // ordem is handled separately or default
       };
 
       if (editandoTarefaId) {
@@ -383,35 +360,29 @@ export default function Fases() {
         await dbLocal.tarefas.update(editandoTarefaId, taskData);
         await SyncService.enqueueMutation(
           'UPDATE',
-          `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+          `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
           editandoTarefaId,
           taskData
         );
       } else {
         // CREATE new
-        const newId = crypto.randomUUID(); // Generate local ID
+        const newId = crypto.randomUUID();
         const newTask: Tarefa = {
           id: newId,
+          userId,
           faseId,
           nome: taskData.nome,
           descricao: taskData.descricao,
           concluida: false,
-          ordem: tarefaEmEdicao.ordem || 0, // Should be passed or calculated
+          ordem: tarefaEmEdicao.ordem || 0,
           arquivos: taskData.arquivos
         };
 
         await dbLocal.tarefas.add(newTask);
 
-        // Queue 'CREATE'
-        // We send the 'data' excluding 'id' usually, but for local-first we need ID consistency.
-        // SyncService should handle ensuring ID is preserved or mapped?
-        // With 'CREATE', usually we let server gen ID, but for offline offline-first, we usually generate UUID.
-        // Firestore allows setting ID on create (doc(..., id).set(data)).
-        // SyncService should use 'set' with the docId.
-
         await SyncService.enqueueMutation(
           'CREATE',
-          `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+          `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
           newId,
           { ...taskData, concluida: false, ordem: newTask.ordem }
         );
@@ -426,13 +397,13 @@ export default function Fases() {
   };
 
   const excluirTarefa = async (faseId: string, tarefaId: string) => {
-    if (!objetivoId || !window.confirm("Deseja realmente excluir esta tarefa?")) return;
+    if (!objetivoId || !window.confirm("Deseja realmente excluir esta tarefa?") || !userId) return;
 
     try {
       await dbLocal.tarefas.delete(tarefaId);
       await SyncService.enqueueMutation(
         'DELETE',
-        `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+        `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
         tarefaId
       );
     } catch (err) {
@@ -441,7 +412,7 @@ export default function Fases() {
   };
 
   const excluirFase = async (faseId: string) => {
-    if (!objetivoId || !window.confirm("Deseja realmente excluir esta fase e todas as suas tarefas?")) return;
+    if (!objetivoId || !window.confirm("Deseja realmente excluir esta fase e todas as suas tarefas?") || !userId) return;
 
     try {
       // Delete tasks locally
@@ -451,14 +422,10 @@ export default function Fases() {
       await dbLocal.tarefas.bulkDelete(taskIds);
       await dbLocal.fases.delete(faseId);
 
-      // Queue DELETE for tasks (to be safe/explicit if server needs it)
-      // Or if we delete Phase on server, does it delete subcollections? NO, Firestore requires manual delete of subcollections.
-      // So strictly we should queue DELETE for each task OR queue a special recursive delete if we supported it.
-      // For now: Loop queue DELETE for tasks.
       for (const tid of taskIds) {
         await SyncService.enqueueMutation(
           'DELETE',
-          `objetivos/${objetivoId}/fases/${faseId}/tarefas`,
+          `users/${userId}/objetivos/${objetivoId}/fases/${faseId}/tarefas`,
           tid
         );
       }
@@ -466,7 +433,7 @@ export default function Fases() {
       // Queue DELETE for Phase
       await SyncService.enqueueMutation(
         'DELETE',
-        `objetivos/${objetivoId}/fases`,
+        `users/${userId}/objetivos/${objetivoId}/fases`,
         faseId
       );
 
@@ -476,8 +443,8 @@ export default function Fases() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-20 px-2">
-      <header className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+    <div className="max-w-4xl mx-auto pb-6 sm:pb-20 px-2 sm:px-4">
+      <header className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4 sm:mb-8">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate("/")} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />
@@ -520,7 +487,7 @@ export default function Fases() {
                           className={`bg-white dark:bg-gray-800 rounded-2xl border transition-all ${snapshot.isDragging ? "shadow-2xl ring-2 ring-indigo-500 z-50" : "shadow-sm border-gray-200 dark:border-gray-700"
                             }`}
                         >
-                          <div className="p-4 flex items-center gap-3">
+                          <div className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
                             <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400">
                               <GripVertical size={20} />
                             </div>
@@ -675,7 +642,7 @@ export default function Fases() {
                                                 className={`bg-white dark:bg-gray-800 rounded-xl border transition-all ${tSnapshot.isDragging ? "shadow-lg ring-2 ring-indigo-400 z-50" : "border-gray-200 dark:border-gray-700"
                                                   }`}
                                               >
-                                                <div className="p-3">
+                                                <div className="p-2 sm:p-3">
                                                   <div className="flex items-start gap-3">
                                                     <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 mt-1">
                                                       <GripVertical size={16} />

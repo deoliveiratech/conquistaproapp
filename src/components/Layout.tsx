@@ -6,12 +6,14 @@ import {
     Tags,
     Bell,
     Menu,
-    User as UserIcon,
+    LogOut,
+    UserCircle,
     X,
     Sun,
     Moon,
-    LogOut,
-    UserCircle
+    Wifi,
+    WifiOff,
+    RefreshCw
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -20,7 +22,6 @@ import { useTheme } from "@/context/ThemeContext";
 import { SyncIndicator } from "./SyncIndicator";
 import { useSync } from "@/hooks/useSync";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -55,40 +56,41 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors duration-300 overflow-x-hidden">
             {/* Top Menu - Fixed */}
-            <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-50 flex items-center justify-between px-2 md:px-4 shadow-sm transition-colors">
-                <div className="flex items-center gap-2">
-                    <Link to="/" className="text-xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                        <span className="hidden sm:inline">MetasPro</span>
-                        <span className="sm:hidden">MP</span>
-                    </Link>
-                </div>
+            {user && (
+                <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-50 flex items-center justify-between px-2 md:px-4 shadow-sm transition-colors">
+                    <div className="flex items-center gap-2">
+                        <Link to="/" className="text-xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                            <span className="hidden sm:inline">MetasPro</span>
+                            <span className="sm:hidden">MP</span>
+                        </Link>
+                    </div>
 
+                    <div className="flex items-center gap-1 sm:gap-3">
+                        <button className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative">
+                            <Bell size={22} />
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+                        </button>
 
-                <div className="flex items-center gap-1 sm:gap-3">
-                    <button className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative">
-                        <Bell size={22} />
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
-                    </button>
+                        <Link to="/profile" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 overflow-hidden border border-indigo-200 dark:border-indigo-800 hover:ring-2 hover:ring-indigo-500 transition-all shadow-sm">
+                            {user?.photoURL ? (
+                                <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                <UserCircle size={22} />
+                            )}
+                        </Link>
 
-                    <Link to="/profile" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 overflow-hidden border border-indigo-200 dark:border-indigo-800 hover:ring-2 hover:ring-indigo-500 transition-all shadow-sm">
-                        {user?.photoURL ? (
-                            <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                            <UserIcon size={22} />
-                        )}
-                    </Link>
-
-                    <button
-                        onClick={() => setIsSidebarOpen(true)}
-                        className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                    >
-                        <Menu size={24} />
-                    </button>
-                </div>
-            </header>
+                        <button
+                            onClick={() => setIsSidebarOpen(true)}
+                            className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                        >
+                            <Menu size={24} />
+                        </button>
+                    </div>
+                </header>
+            )}
 
             {/* Sidebar / Mobile Menu */}
-            {isSidebarOpen && (
+            {user && isSidebarOpen && (
                 <div className="fixed inset-0 z-[60] flex">
                     <div
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -108,6 +110,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                                 <X size={24} />
                             </button>
                         </div>
+
                         <nav className="flex-1 p-2 space-y-1">
                             {navItems.map((item) => (
                                 <Link
@@ -160,37 +163,44 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             )}
 
             {/* Main Content */}
-            <main className="flex-1 pt-20 pb-24 md:pb-6 px-2 max-w-7xl mx-auto w-full">
+            <main className={`flex-1 ${user ? 'pt-20 pb-24 md:pb-6 px-2 max-w-7xl mx-auto w-full' : 'flex items-center justify-center p-0'}`}>
                 {children}
             </main>
 
             {/* Bottom Menu - Fixed (Mobile Only) */}
-            <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 flex items-center justify-around md:hidden px-2 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] transition-colors">
-                <Link
-                    to="/novo-objetivo"
-                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${location.pathname === "/novo-objetivo" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"
-                        }`}
-                >
-                    <PlusCircle size={24} />
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Objetivo</span>
-                </Link>
-                <Link
-                    to="/categorias"
-                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${location.pathname === "/categorias" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"
-                        }`}
-                >
-                    <Tags size={24} />
-                    <span className="text-[10px] font-medium uppercase tracking-wider">Categorias</span>
-                </Link>
-            </nav>
-            {/* Hide fixed indicator on mobile if sidebar is open, or keep it. 
-                User complained about mobile menu. We added it there. 
-                We might want to hide the fixed one on small screens to avoid clutter? 
-                For now, we'll keep it as the user didn't explicitly ask to remove it, 
-                just asked to "adjust inside mobile menu". */}
-            <div className="hidden md:block">
-                <SyncIndicator />
-            </div>
+            {user && (
+                <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 flex items-center justify-around md:hidden px-2 shadow-[0_-2px_10_rgba(0,0,0,0.05)] transition-colors">
+                    <Link
+                        to="/"
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${location.pathname === "/" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"
+                            }`}
+                    >
+                        <Home size={24} />
+                        <span className="text-[10px] font-medium uppercase tracking-wider">Início</span>
+                    </Link>
+                    <Link
+                        to="/novo-objetivo"
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${location.pathname === "/novo-objetivo" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"
+                            }`}
+                    >
+                        <PlusCircle size={24} />
+                        <span className="text-[10px] font-medium uppercase tracking-wider">Objetivo</span>
+                    </Link>
+                    <Link
+                        to="/categorias"
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${location.pathname === "/categorias" ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"
+                            }`}
+                    >
+                        <Tags size={24} />
+                        <span className="text-[10px] font-medium uppercase tracking-wider">Categorias</span>
+                    </Link>
+                </nav>
+            )}
+            {user && (
+                <div className="hidden md:block">
+                    <SyncIndicator />
+                </div>
+            )}
         </div >
     );
 };
