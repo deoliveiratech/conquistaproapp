@@ -484,8 +484,7 @@ export default function Fases() {
                         <article
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={`bg-white dark:bg-gray-800 rounded-2xl border transition-all ${snapshot.isDragging ? "shadow-2xl ring-2 ring-indigo-500 z-50" : "shadow-sm border-gray-200 dark:border-gray-700"
-                            }`}
+                          className={`bg-white dark:bg-gray-800 rounded-2xl border transition-all duration-300 ${isAberta ? "ring-4 ring-indigo-500/10 border-indigo-500 shadow-lg" : "shadow-sm border-gray-200 dark:border-gray-700 hover:shadow-md"} ${snapshot.isDragging ? "shadow-2xl ring-2 ring-indigo-500 z-50" : ""}`}
                         >
                           <div className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
                             <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400">
@@ -639,8 +638,7 @@ export default function Fases() {
                                               <div
                                                 ref={provided.innerRef}
                                                 {...provided.draggableProps}
-                                                className={`bg-white dark:bg-gray-800 rounded-xl border transition-all ${tSnapshot.isDragging ? "shadow-lg ring-2 ring-indigo-400 z-50" : "border-gray-200 dark:border-gray-700"
-                                                  }`}
+                                                className={`bg-white dark:bg-gray-800 rounded-xl border transition-all duration-300 ${isTarefaAberta ? "ring-4 ring-indigo-400/10 border-indigo-400 shadow-md" : "border-gray-200 dark:border-gray-700 hover:border-indigo-300"} ${tSnapshot.isDragging ? "shadow-lg ring-2 ring-indigo-400 z-50" : ""}`}
                                               >
                                                 <div className="p-2 sm:p-3">
                                                   <div className="flex items-start gap-3">

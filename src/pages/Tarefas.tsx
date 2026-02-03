@@ -138,7 +138,7 @@ export default function Tarefas() {
         {tarefas.map((tarefa) => (
           <div
             key={tarefa.id}
-            className="flex flex-col p-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:shadow-md"
+            className={`flex flex-col p-3 bg-white dark:bg-gray-800 rounded-2xl border transition-all duration-300 ${editando === tarefa.id ? "ring-4 ring-indigo-500/10 border-indigo-500 shadow-md scale-[1.01]" : "border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md"}`}
           >
             <div className="flex items-start gap-2 w-full">
               {editando === tarefa.id ? (
