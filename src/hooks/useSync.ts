@@ -12,6 +12,7 @@ export function useSync() {
     const userId = user?.uid;
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+    const [hasSyncedOnce, setHasSyncedOnce] = useState(false);
 
     // Track queue items
     const queueStats = useLiveQuery(async () => {
@@ -37,19 +38,14 @@ export function useSync() {
         }
     }, [isOnline, userId]);
 
-    // Auto-sync when coming back online
+    // Initial sync - only once when user is authenticated
     useEffect(() => {
-        if (isOnline) {
+        if (isOnline && userId && !hasSyncedOnce) {
+            console.log("[useSync] Initial sync triggered...");
             triggerSync();
+            setHasSyncedOnce(true);
         }
-    }, [isOnline, triggerSync]);
-
-    // Periodic sync (every 5 minutes)
-    useEffect(() => {
-        if (!isOnline) return;
-        const interval = setInterval(triggerSync, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, [isOnline, triggerSync]);
+    }, [isOnline, userId, hasSyncedOnce, triggerSync]);
 
     return { isSyncing, lastSyncTime, triggerSync, queueStats };
 }

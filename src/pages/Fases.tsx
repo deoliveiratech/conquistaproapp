@@ -4,12 +4,9 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import type { Fase, Objetivo, Tarefa } from "../lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { SyncService } from "../lib/sync";
-import { useSync } from "../hooks/useSync";
 import {
-  collection,
   doc,
   getDoc,
-  getDocs,
   Timestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -73,20 +70,21 @@ export default function Fases() {
   const fasesLocal = useLiveQuery(async () => {
     if (!objetivoId || !userId) return [];
 
-    const fases = await dbLocal.fases.where("objetivoId").equals(objetivoId).toArray();
-    // Optional: filter by userId too, but objetivoId implies it
-    fases.sort((a, b) => a.ordem - b.ordem);
+    const fasesRaw = await dbLocal.fases.where("objetivoId").equals(objetivoId).toArray();
+    fasesRaw.sort((a, b) => a.ordem - b.ordem);
 
-    for (const f of fases) {
-      if (f.id) {
-        const tarefas = await dbLocal.tarefas.where("faseId").equals(f.id).toArray();
-        f.tarefas = tarefas.sort((a, b) => a.ordem - b.ordem);
-      }
-    }
-    return fases;
+    const fasesComTarefas = await Promise.all(fasesRaw.map(async (f) => {
+      const tarefas = await dbLocal.tarefas.where("faseId").equals(f.id!).toArray();
+      return {
+        ...f,
+        tarefas: tarefas.sort((a, b) => a.ordem - b.ordem)
+      };
+    }));
+
+    return fasesComTarefas;
   }, [objetivoId, userId]);
 
-  const { triggerSync } = useSync();
+
 
   useEffect(() => {
     if (fasesLocal) {
@@ -95,10 +93,9 @@ export default function Fases() {
   }, [fasesLocal]);
 
   useEffect(() => {
-    fetchFases();
-    // Fetch objective details local or remote
     fetchObjetivoDetalhes();
-    triggerSync();
+    // Manual sync can be triggered here if needed, 
+    // but we use the initial sync in useSync.ts
   }, [objetivoId, userId]);
 
   const fetchObjetivoDetalhes = async () => {
@@ -127,54 +124,6 @@ export default function Fases() {
       }
     } catch (e) {
       console.error("Error fetching objective details", e);
-    }
-  };
-
-  const fetchFases = async () => {
-    if (!objetivoId || !userId) return;
-
-    try {
-      const fasesSnap = await getDocs(collection(firestore, "users", userId, "objetivos", objetivoId, "fases"));
-
-      const todasFases: Fase[] = await Promise.all(fasesSnap.docs.map(async (faseDoc) => {
-        const faseData = faseDoc.data();
-        const tarefasSnap = await getDocs(
-          collection(firestore, "users", userId, "objetivos", objetivoId, "fases", faseDoc.id, "tarefas")
-        );
-
-        const tarefas: Tarefa[] = tarefasSnap.docs.map((t) => {
-          const data = t.data();
-          return {
-            id: t.id,
-            userId,
-            nome: data.nome,
-            concluida: data.concluida,
-            ordem: data.ordem ?? 0,
-            faseId: faseDoc.id,
-            descricao: data.descricao || "",
-            arquivos: data.arquivos || [],
-          };
-        });
-
-        // Save tasks locally
-        await dbLocal.tarefas.bulkPut(tarefas);
-
-        return {
-          id: faseDoc.id,
-          userId,
-          titulo: faseData.titulo,
-          ordem: faseData.ordem ?? 0,
-          objetivoId,
-        };
-      }));
-
-      // Update phases locally
-      if (todasFases.length > 0) {
-        await dbLocal.fases.bulkPut(todasFases);
-      }
-
-    } catch (err) {
-      // console.warn("Background fetch failed or offline", err);
     }
   };
 
@@ -275,6 +224,18 @@ export default function Fases() {
     if (!objetivoId || !tarefa.id || !userId) return;
     const novaConcluida = !tarefa.concluida;
 
+    // Optimistic Update
+    const novasFases = fases.map(f => {
+      if (f.id === faseId) {
+        return {
+          ...f,
+          tarefas: f.tarefas?.map(t => t.id === tarefa.id ? { ...t, concluida: novaConcluida } : t)
+        };
+      }
+      return f;
+    });
+    setFases(novasFases);
+
     try {
       // 1. Update Local
       await dbLocal.tarefas.update(tarefa.id, { concluida: novaConcluida });
@@ -289,6 +250,7 @@ export default function Fases() {
 
     } catch (err) {
       console.error("Erro ao atualizar tarefa:", err);
+      // Rollback if needed, but useLiveQuery will handle it
     }
   };
 
@@ -446,7 +408,7 @@ export default function Fases() {
     <div className="max-w-4xl mx-auto pb-6 sm:pb-20 px-2 sm:px-4">
       <header className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4 sm:mb-8">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/")} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+          <button onClick={() => navigate("/objetivos")} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />
           </button>
           <div>

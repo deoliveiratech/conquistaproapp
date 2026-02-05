@@ -2,13 +2,12 @@ import { useEffect, useState, useMemo } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db as firestore } from "../lib/firebase";
 import { db as dbLocal } from "../lib/db";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { Objetivo } from "../lib/db";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Search, Filter, GripVertical, Edit2, Check, X as XIcon, PlusCircle, ChevronRight, Trash2 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { SyncService } from "../lib/sync";
-import { useSync } from "../hooks/useSync";
 
 interface Categoria {
   id: string;
@@ -21,6 +20,7 @@ import { useAuth } from "../context/AuthContext";
 export default function Objetivos() {
   const { user } = useAuth();
   const userId = user?.uid;
+  const [searchParams] = useSearchParams();
   const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
   const [progressoPorObjetivo, setProgressoPorObjetivo] = useState<Record<string, number>>({});
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export default function Objetivos() {
     return objs.sort((a, b) => a.ordem - b.ordem);
   }, [userId]);
 
-  const { triggerSync } = useSync();
+
 
   useEffect(() => {
     if (objetivosLocal) {
@@ -56,8 +56,13 @@ export default function Objetivos() {
 
   useEffect(() => {
     fetchCategorias();
-    triggerSync();
-  }, []);
+
+    // Initialize filters from URL
+    const q = searchParams.get("q");
+    const catId = searchParams.get("categoriaId");
+    if (q) setFiltroTexto(q);
+    if (catId) setFiltroCategoria(catId);
+  }, [searchParams]);
 
   const fetchCategorias = async () => {
     try {

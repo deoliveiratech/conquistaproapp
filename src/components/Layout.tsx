@@ -13,7 +13,8 @@ import {
     Moon,
     Wifi,
     WifiOff,
-    RefreshCw
+    RefreshCw,
+    Target
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -38,6 +39,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     const navItems = [
         { label: "Dash", path: "/", icon: <Home size={20} /> },
+        { label: "Objetivos", path: "/objetivos", icon: <Target size={20} /> },
         { label: "Novo Objetivo", path: "/novo-objetivo", icon: <PlusCircle size={20} /> },
         { label: "Categorias", path: "/categorias", icon: <Tags size={20} /> },
         { label: "Meu Perfil", path: "/profile", icon: <UserCircle size={20} /> },

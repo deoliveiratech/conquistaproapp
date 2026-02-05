@@ -114,7 +114,7 @@ export default function Login() {
                     onClick={handleGoogleLogin}
                     className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-3 shadow-sm active:scale-[0.98]"
                 >
-                    <img src="public/login_google.png" alt="Google" className="w-5 h-5" />
+                    <img src="login_google.png" alt="Google" className="w-5 h-5" />
                     Entrar com Google
                 </button>
 
