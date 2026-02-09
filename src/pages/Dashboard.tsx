@@ -122,44 +122,44 @@ export default function Dashboard() {
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
-            <header>
+            {/* <header>
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Sua Dashboard</h1>
                 <p className="text-gray-500 dark:text-gray-400">Acompanhe seu progresso e alcance suas metas</p>
-            </header>
+            </header> */}
 
             {/* Search Card */}
-            <section className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
+            <section className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 transition-colors">
                 <form onSubmit={handleSearch} className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <Search className="text-indigo-600 dark:text-indigo-400" size={20} />
-                        <h2 className="font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider text-sm">Pesquisar Objetivos</h2>
+                        <Search className="text-indigo-600 dark:text-indigo-400" size={18} />
+                        <h2 className="font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider text-[10px] md:text-sm">Pesquisar Objetivos</h2>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div className="md:col-span-7 relative">
+                    <div className="grid grid-cols-12 gap-2 md:gap-4">
+                        <div className="col-span-5 md:col-span-7 relative">
                             <input
                                 type="text"
-                                placeholder="Ex: Aprender Inglês..."
+                                placeholder="Buscar..."
                                 value={filtroTexto}
                                 onChange={(e) => setFiltroTexto(e.target.value)}
-                                className="w-full pl-4 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-700 dark:text-gray-200"
+                                className="w-full pl-3 md:pl-4 pr-3 md:pr-4 py-2 md:py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl md:rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-xs md:text-base text-gray-700 dark:text-gray-200"
                             />
                         </div>
-                        <div className="md:col-span-3">
+                        <div className="col-span-4 md:col-span-3">
                             <select
                                 value={filtroCategoria}
                                 onChange={(e) => setFiltroCategoria(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-700 dark:text-gray-200 transition-all cursor-pointer"
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl md:rounded-2xl px-2 md:px-4 py-2 md:py-3 focus:ring-2 focus:ring-indigo-500 outline-none text-[10px] md:text-base text-gray-700 dark:text-gray-200 transition-all cursor-pointer"
                             >
-                                <option value="">Todas Categorias</option>
+                                <option value="">Todas</option>
                                 {categorias.map(cat => (
                                     <option key={cat.id} value={cat.id}>{cat.nome}</option>
                                 ))}
                             </select>
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="col-span-3 md:col-span-2">
                             <button
                                 type="submit"
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-md flex items-center justify-center gap-2"
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 md:py-3 px-2 md:px-6 rounded-xl md:rounded-2xl transition-all shadow-md flex items-center justify-center gap-1 md:gap-2 text-[10px] md:text-base"
                             >
                                 Buscar
                             </button>
@@ -183,7 +183,7 @@ export default function Dashboard() {
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6">
                     {categorias.map(cat => {
                         const s = statsPorCategoria?.[cat.id] || { totalObjetivos: 0, progressoMedio: 0, totalTarefas: 0, concluidas: 0 };
 
@@ -191,40 +191,40 @@ export default function Dashboard() {
                             <button
                                 key={cat.id}
                                 onClick={() => handleCategoryClick(cat.id)}
-                                className="text-left bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-300 group relative overflow-hidden"
+                                className="text-left bg-white dark:bg-gray-800 p-2 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-300 group relative overflow-hidden"
                             >
                                 {/* Visual Accent */}
-                                <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+                                <div className="absolute top-0 left-0 w-1 md:w-2 h-full bg-indigo-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
 
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-2xl text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
-                                        <Target size={24} />
+                                <div className="flex justify-between items-start mb-2 md:mb-6">
+                                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-1.5 md:p-3 rounded-lg md:rounded-2xl text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+                                        <Target className="w-3.5 h-3.5 md:w-6 md:h-6" />
                                     </div>
-                                    <ChevronRight className="text-gray-300 dark:text-gray-600 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" size={20} />
+                                    <ChevronRight className="hidden md:block text-gray-300 dark:text-gray-600 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" size={20} />
                                 </div>
 
-                                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{cat.nome}</h3>
+                                <h3 className="text-[10px] md:text-xl font-bold text-gray-800 dark:text-gray-100 mb-1 md:mb-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">{cat.nome}</h3>
 
-                                <div className="space-y-4">
+                                <div className="space-y-2 md:space-y-4">
                                     {/* Stats Mini Grid */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Objetivos</p>
-                                            <p className="text-lg font-bold text-gray-700 dark:text-gray-200">{s.totalObjetivos}</p>
+                                    <div className="flex flex-col md:grid md:grid-cols-2 gap-0.5 md:gap-4">
+                                        <div className="space-y-0 md:space-y-1">
+                                            <p className="text-[7px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">Objetivos</p>
+                                            <p className="text-[10px] md:text-lg font-bold text-gray-700 dark:text-gray-200">{s.totalObjetivos}</p>
                                         </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tarefas</p>
-                                            <p className="text-lg font-bold text-gray-700 dark:text-gray-200">{s.concluidas}/{s.totalTarefas}</p>
+                                        <div className="space-y-0 md:space-y-1">
+                                            <p className="text-[7px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">Tarefas</p>
+                                            <p className="text-[10px] md:text-lg font-bold text-gray-700 dark:text-gray-200">{s.concluidas}/{s.totalTarefas}</p>
                                         </div>
                                     </div>
 
                                     {/* Progress Bar */}
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                                            <span className="text-gray-400">Progresso Médio</span>
+                                    <div className="space-y-1 md:space-y-2">
+                                        <div className="flex justify-between text-[7px] md:text-[10px] font-bold uppercase tracking-widest">
+                                            <span className="hidden md:inline text-gray-400">Progresso</span>
                                             <span className="text-indigo-600 dark:text-indigo-400">{s.progressoMedio}%</span>
                                         </div>
-                                        <div className="w-full bg-gray-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                                        <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 md:h-2 rounded-full overflow-hidden">
                                             <div
                                                 className="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out"
                                                 style={{ width: `${s.progressoMedio}%` }}

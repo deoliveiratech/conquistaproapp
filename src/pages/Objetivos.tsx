@@ -235,29 +235,29 @@ export default function Objetivos() {
       </header>
 
       {/* Filters Section */}
-      <section className="bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-2 transition-colors">
-        <h2 className="text-center font-bold text-gray-700 dark:text-gray-200 mb-3 text-sm uppercase tracking-wider">Filtrar Objetivos</h2>
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-grow">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+      <section className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 mb-2 transition-colors">
+        <h2 className="text-center font-bold text-gray-700 dark:text-gray-200 mb-2 md:mb-3 text-[10px] md:text-sm uppercase tracking-wider">Filtrar Objetivos</h2>
+        <div className="grid grid-cols-12 gap-2 md:gap-3">
+          <div className="col-span-7 md:col-span-8 relative">
+            <Search className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Buscar por título ou descrição..."
+              placeholder="Buscar..."
               value={filtroTexto}
               onChange={(e) => setFiltroTexto(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm text-gray-700 dark:text-gray-200"
+              className="w-full pl-7 md:pl-9 pr-2 md:pr-4 py-1.5 md:py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg md:rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-xs md:text-sm text-gray-700 dark:text-gray-200"
             />
           </div>
-          <div className="flex items-center gap-2 md:w-1/3">
-            <Filter size={18} className="text-gray-400 shrink-0" />
+          <div className="col-span-5 md:col-span-4 flex items-center gap-1 md:gap-2">
+            <Filter size={16} className="hidden sm:block text-gray-400 shrink-0" />
             <select
               value={filtroCategoria}
               onChange={(e) => {
                 setFiltroCategoria(e.target.value);
               }}
-              className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-700 dark:text-gray-200"
+              className="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg md:rounded-xl px-2 md:px-3 py-1.5 md:py-2 text-[10px] md:text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-700 dark:text-gray-200"
             >
-              <option value="">Todas as Categorias</option>
+              <option value="">Todas</option>
               {categorias.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.nome}</option>
               ))}
